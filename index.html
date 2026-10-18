@@ -1,0 +1,1302 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<title>AI 承接原型 · 可点交互</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#eef2f0; color:#111; font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; }
+  .app { width:1580px; margin:0 auto; padding:20px 24px 40px; display:grid; grid-template-columns:238px 1fr 340px; gap:20px; align-items:start; }
+  .panel { background:#fff; border:1px solid #e6ece9; border-radius:16px; padding:16px; }
+  .panel + .panel { margin-top:14px; }
+  .ttl { font-size:15px; font-weight:800; margin-bottom:10px; }
+  .muted { font-size:12.5px; color:#7d8a83; line-height:1.6; }
+
+  /* ---------- 左栏：场景与开关 ---------- */
+  .scene-btn { width:100%; text-align:left; border:1px solid #e6ece9; background:#fff; border-radius:11px; padding:9px 11px; font-size:13.5px;
+               cursor:pointer; margin-bottom:7px; font-family:inherit; color:#111; }
+  .scene-btn small { display:block; font-size:11.5px; color:#8a9691; margin-top:3px; }
+  .scene-btn:hover { border-color:#bde8d1; }
+  .scene-btn.on { border-color:#12a35f; background:#f2fbf6; }
+  .scene-btn.on b { color:#0a8a52; }
+  .sw { display:flex; align-items:center; gap:9px; font-size:13px; padding:7px 0; cursor:pointer; }
+  .sw input { width:16px; height:16px; accent-color:#12a35f; }
+  .seg { display:flex; gap:6px; margin-top:4px; }
+  .seg button { flex:1; border:1px solid #e6ece9; background:#fff; border-radius:9px; padding:7px 0; font-size:13px; cursor:pointer; font-family:inherit; }
+  .seg button.on { border-color:#12a35f; background:#f2fbf6; color:#0a8a52; font-weight:700; }
+
+  /* ---------- 中栏：两台手机 ---------- */
+  .phones { display:flex; gap:22px; justify-content:center; }
+  .devwrap { width:390px; }
+  .devcap { font-size:13px; font-weight:800; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .devcap i { font-style:normal; font-size:11px; font-weight:700; border-radius:7px; padding:2px 8px; }
+  .devcap .now i { color:#5a6a62; background:#eef1ef; }
+  .devcap .next i { color:#fff; background:#12a35f; }
+  .dev { position:relative; width:390px; height:844px; border-radius:42px; background:#fff; border:1px solid #dbe3df;
+         box-shadow:0 16px 40px rgba(20,50,35,.12); overflow:hidden; }
+  .screen { position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; padding-bottom:118px; scroll-behavior:auto; }
+  .screen::-webkit-scrollbar { width:0; }
+  .bottom { position:absolute; left:0; right:0; bottom:0; z-index:9; }
+  .empty-note { position:absolute; inset:0; background:#f7faf8; display:flex; align-items:center; justify-content:center;
+                text-align:center; font-size:14px; color:#7d8a83; line-height:1.8; padding:0 40px; z-index:20; }
+
+  /* ---------- 手机通用 ---------- */
+  .statusbar { display:flex; align-items:center; justify-content:space-between; padding:13px 22px 8px; font-size:13.5px; font-weight:600; }
+  .statusbar .mid { display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:500; }
+  .logo-dot { width:13px; height:13px; border-radius:4px; background:linear-gradient(135deg,#ff7a45,#ff4d2e); }
+  .statusbar .right { display:flex; align-items:center; gap:6px; font-size:12px; }
+  .bars { display:flex; align-items:flex-end; gap:2px; height:10px; }
+  .bars i { width:3px; background:#111; border-radius:1px; display:block; }
+  .bars i:nth-child(1){height:4px} .bars i:nth-child(2){height:6px} .bars i:nth-child(3){height:8px} .bars i:nth-child(4){height:10px}
+  .batt { width:22px; height:11px; border:1.3px solid #111; border-radius:3px; position:relative; }
+  .batt::after { content:""; position:absolute; right:-3px; top:3px; width:2px; height:5px; background:#111; border-radius:0 1px 1px 0; }
+  .batt i { position:absolute; inset:1.5px; width:62%; background:#34c759; border-radius:1px; display:block; }
+  .top { position:sticky; top:0; z-index:7; background:linear-gradient(180deg,#e9f8ef 0%, #f2fbf5 62%, #ffffff 100%); }
+  .searchrow { display:flex; align-items:center; gap:11px; height:64px; padding:0 18px; background:transparent; }
+  .back { font-size:23px; line-height:1; }
+  .searchbox { flex:1; height:44px; border:2px solid #111; border-radius:22px; display:flex; align-items:center; padding:0 17px;
+               font-size:15.5px; font-weight:500; background:#fff; white-space:nowrap; overflow:hidden; }
+  .dots { font-size:19px; letter-spacing:2px; }
+  .titlerow { display:flex; align-items:center; gap:9px; height:64px; padding:0 18px; background:transparent; }
+  .titlerow .pttl { font-size:19px; font-weight:700; }
+  .titlerow .dots { margin-left:auto; }
+  .tabs { display:flex; align-items:center; gap:21px; padding:0 20px; font-size:15.5px; overflow:hidden; }
+  .tab { color:#333; font-weight:500; position:relative; white-space:nowrap; flex:0 0 auto; }
+  .tab.on { color:#08331f; font-weight:800; font-size:17px; z-index:1; }
+  .tab.on::before { content:""; position:absolute; left:-9px; right:-9px; top:-4px; bottom:-4px; background:#a9e8c4; border-radius:10px; z-index:-1; }
+  .tab.on::after { content:""; position:absolute; left:50%; bottom:-11px; width:20px; height:3px; margin-left:-10px; border-radius:2px; background:#12a35f; }
+  .tab.ai { color:#0a8a52; font-weight:700; background:#fff; border:1.6px solid #bde8d1; border-radius:15px;
+            padding:4px 12px; font-size:13.5px; display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  .tab.ai.on { color:#fff; background:#12a35f; border-color:#12a35f; z-index:1; }
+  .tab.ai.on::before { display:none; }
+  .tab.ai.on::after { content:""; position:absolute; left:50%; bottom:-11px; width:20px; height:3px; margin-left:-10px; border-radius:2px; background:#12a35f; }
+  .body { padding:16px 20px 0; }
+
+  /* ---------- 图片占位 ---------- */
+  .thumb { position:relative; overflow:hidden; border-radius:11px; flex:0 0 auto;
+           background:linear-gradient(180deg,#cfe6f5 0%,#e6f2fb 54%,#dcecdd 54%,#eef7ea 100%); }
+  .thumb::before { content:""; position:absolute; left:16%; top:15%; width:19%; height:19%; border-radius:50%; background:rgba(255,255,255,.82); }
+  .thumb::after { content:""; position:absolute; left:-8%; bottom:3%; width:116%; height:31%;
+                  border-radius:50% 50% 0 0; background:linear-gradient(180deg,rgba(108,168,128,.6),rgba(108,168,128,.24)); }
+  .thumb.warm { background:linear-gradient(180deg,#fbe6cd 0%,#fdf1e2 54%,#e8dcc4 54%,#f5efe0 100%); }
+  .thumb.warm::after { background:linear-gradient(180deg,rgba(186,146,86,.55),rgba(186,146,86,.2)); }
+  .thumb.cool { background:linear-gradient(180deg,#d6e3f6 0%,#eaf1fb 54%,#dbe6f0 54%,#eff4fa 100%); }
+  .thumb.cool::after { background:linear-gradient(180deg,rgba(108,140,190,.5),rgba(108,140,190,.18)); }
+  .thumb.hotel { background:linear-gradient(180deg,#e4ebf4,#f5f8fc); }
+  .thumb.hotel::before { left:26%; top:30%; width:48%; height:66%; border-radius:5px 5px 0 0; background:#c6d4e5; }
+  .thumb.hotel::after { left:33%; top:40%; width:34%; height:48%; border-radius:2px;
+    background:repeating-linear-gradient(90deg,#eff5fb 0 5px,rgba(0,0,0,0) 5px 11px),
+               repeating-linear-gradient(0deg,#eff5fb 0 4px,rgba(0,0,0,0) 4px 9px); }
+  /* feed 卡左上角的类型标（攻略 / 景点 / 酒店 / 门票…，对齐线上的卡面样式） */
+  .thumb i.ctag { position:absolute; left:6px; top:6px; z-index:2; font-style:normal; font-size:10px; font-weight:700;
+                  color:#243029; background:rgba(255,255,255,.92); border-radius:6px; padding:2px 7px; }
+
+  /* ---------- 要点标 ---------- */
+  .ptitle { font-size:23px; font-weight:800; letter-spacing:-.3px; }
+  .ptitle span { font-size:13px; font-weight:500; color:#8fae9c; margin-left:7px; }
+  .pchips { display:flex; gap:7px; margin-top:12px; flex-wrap:wrap; }
+  .pchip { font-size:13px; border:1px solid #e8ecea; border-radius:10px; padding:7px 11px; background:#fff; color:#2c3a33; white-space:nowrap; }
+  .plabel { margin-top:17px; font-size:16px; font-weight:800; }
+  .plabel small { font-weight:500; color:#9aa8a1; font-size:12px; margin-left:6px; }
+  .ppoi { border:1px solid #eef1ef; border-radius:13px; padding:13px; background:#fff; }
+  .ppoi .n { font-size:17px; font-weight:800; display:flex; align-items:center; }
+  .ppoi .n i { font-style:normal; font-size:11px; font-weight:700; color:#fff; background:#e2560c; border-radius:4px; padding:1px 6px; margin-left:6px; }
+  .ppoi .m { font-size:12.5px; color:#8a9691; margin-top:7px; line-height:1.5; }
+  .ppoi .b { font-size:12px; color:#c0641e; background:#fff1e4; border-radius:5px; padding:4px 8px; display:inline-block; margin-top:8px; }
+  .ppoi .p { display:flex; align-items:center; margin-top:11px; }
+  .ppoi .p b { font-size:17px; color:#ff4d2e; font-weight:800; }
+  .ppoi .p b small { font-size:11px; font-weight:500; }
+  .ppoi .p span { margin-left:auto; font-size:12.5px; font-weight:700; color:#fff; background:#12a35f; border-radius:13px; padding:6px 14px; }
+  /* 景区头部卡内的五个功能入口：同一排、带 icon */
+  .pentries { display:flex; margin-top:13px; padding-top:12px; border-top:1px solid #f2f5f3; }
+  .pe { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; }
+  .pe .pi { font-size:19px; line-height:1; }
+  .pe .pt { font-size:11.5px; color:#2c3a33; white-space:nowrap; }
+  .ticket { display:flex; align-items:center; margin-top:9px; font-size:13px; }
+  .ticket b { color:#ff4d2e; font-weight:800; margin-left:6px; }
+  .ticket em { font-style:normal; margin-left:auto; font-size:12px; font-weight:700; color:#12a35f; }
+  .prow { display:flex; gap:10px; margin-top:12px; align-items:flex-start; }
+  .prow .thumb { width:60px; height:60px; }
+  .prow .li { flex:1; min-width:0; }
+  .prow .li .a { font-size:13.5px; font-weight:700; line-height:1.35; }
+  .prow .li .b { font-size:12px; color:#8a9691; margin-top:4px; }
+  .prow .pr { font-size:14.5px; font-weight:800; color:#ff4d2e; flex:0 0 auto; }
+
+  /* ---------- AI 卡 ---------- */
+  .aicard { margin:0 0 4px; border-radius:15px; background:linear-gradient(100deg,#e6f8ec,#f4fdf7); border:1px solid #cdefd9; padding:14px; }
+  .aicard .h { display:flex; align-items:center; gap:8px; }
+  .aicard .h .ava { width:30px; height:30px; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; flex:0 0 auto; }
+  .aicard .h .tt { font-size:15.5px; font-weight:800; }
+  .aicard .h .tag { margin-left:auto; font-size:11px; font-weight:700; color:#0a8a52; background:#fff; border-radius:7px; padding:3px 8px; white-space:nowrap; }
+  .aicard .ans { margin-top:10px; font-size:13px; line-height:1.66; color:#243029; }
+  .aicard .ans b { font-weight:800; }
+  .aicard .dline { display:flex; gap:8px; margin-top:8px; font-size:12.5px; line-height:1.5; color:#2c3a33; }
+  .aicard .dline .day { font-weight:800; color:#0a8a52; flex:0 0 auto; }
+  .aicard .dline .hint { color:#8a9691; }
+  .aicard .meta { margin-top:10px; font-size:12px; color:#4f8f6b; }
+  .aicard .btn { margin-top:11px; height:38px; border-radius:19px; background:#111; color:#fff; font-size:13.5px; font-weight:700;
+                 display:flex; align-items:center; justify-content:center; gap:4px; }
+  /* 线上版 AI 卡（已有 AI 回复的场景）：白底 + 灰标 + 两张图 + 参考来源 */
+  .aicard.nowver { background:#fff; border-color:#e6ebe8; }
+  .aicard .tag.gray { color:#7d8a83; background:#f2f5f3; border-color:#e8ecea; }
+  .aiimgs { display:flex; gap:10px; margin-top:12px; }
+  .aiimgs .thumb { width:calc(50% - 5px); height:98px; }
+  .aisrc { display:flex; align-items:center; gap:9px; margin-top:12px; padding-top:11px; border-top:1px solid #eef1ef; }
+  .aisrc .thumb { width:46px; height:46px; border-radius:9px; }
+  .aisrc .st { font-size:12.5px; font-weight:800; color:#3c4a44; }
+  .aisrc .sd { font-size:11.5px; color:#8a9691; margin-top:3px; }
+  /* 卡片里的文案不长出来：超长就用省略号缩略，想看完整点「查看全部」去 AI tab */
+  .aicard .ans { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+  .aicard .ans.first { -webkit-line-clamp:4; }      /* 置顶（首位）的卡多露一行 */
+  .aicard .ans.nowver { -webkit-line-clamp:6; }     /* 线上那张原文卡本来就长 */
+  .airel { margin-top:12px; border-top:1px solid #e2f2e8; padding-top:10px; }
+  .airel .rhead { font-size:12px; font-weight:800; color:#4f8f6b; }
+  .airel .rr { display:flex; align-items:center; gap:9px; padding:9px 0; border-bottom:1px solid #eef7f1; cursor:pointer; }
+  .airel .rr:last-child { border-bottom:0; }
+  .airel .rr .thumb { width:44px; height:44px; border-radius:9px; }
+  .airel .rr .li { flex:1; min-width:0; }
+  .airel .rr .a { font-size:13px; font-weight:700; color:#243029; line-height:1.35; }
+  .airel .rr .b { font-size:11.5px; color:#8a9691; margin-top:3px; }
+  .airel .rr .pr { font-size:13.5px; font-weight:800; color:#ff4d2e; flex:0 0 auto; }
+
+  /* ---------- 地图卡 ---------- */
+  .mapcard { margin:12px 0 0; border:1px solid #e6ecea; border-radius:15px; background:#fff; overflow:hidden; }
+  .maphead { display:flex; align-items:center; padding:11px 13px 0; }
+  .maphead .mt { font-size:14px; font-weight:800; }
+  .maphead .mo { margin-left:auto; font-size:12.5px; font-weight:700; color:#0a8a52; }
+  .mapmeta { padding:4px 13px 9px; font-size:12px; color:#8a9691; }
+  .mapview { position:relative; height:96px; border-top:1px solid #eef2f0; overflow:hidden; }
+  .mapsvg { display:block; width:100%; height:96px; }
+  .maplegend { position:absolute; right:9px; bottom:8px; display:flex; gap:9px; align-items:center;
+               background:rgba(255,255,255,.88); border-radius:8px; padding:4px 8px; font-size:10.5px; color:#4a5a53; }
+  .maplegend span { display:flex; align-items:center; gap:3px; }
+  .maplegend i { width:7px; height:7px; border-radius:50%; display:block; }
+  .maplegend i.h { background:#2f6ef2; } .maplegend i.s { background:#f5821f; } .maplegend i.t { background:#12a35f; }
+
+  /* ---------- 大家都在问（弹幕板） ---------- */
+  .askboard { margin:12px 0 0; border:1.5px solid #bfe7cf; border-radius:17px; background:#f8fdfa; padding:13px 0; }
+  .askhead { padding:0 14px; font-size:15.5px; font-weight:800; color:#0a8a52; display:flex; align-items:center; gap:6px; }
+  .askhead b { color:#12a35f; font-size:14px; }
+  .marquee { overflow:hidden; margin-top:9px;
+             -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0,#000 16px,#000 calc(100% - 16px),rgba(0,0,0,0) 100%);
+             mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0,#000 16px,#000 calc(100% - 16px),rgba(0,0,0,0) 100%); }
+  .marquee .track { display:flex; gap:8px; width:max-content; animation:marq 17s linear infinite; }
+  .marquee.rev .track { animation-direction:reverse; animation-duration:20s; }
+  @keyframes marq { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  .qchip { display:flex; align-items:center; gap:5px; font-size:13px; color:#243029; background:#fff;
+           border:1px solid #d8eee1; border-radius:15px; padding:8px 13px; white-space:nowrap; cursor:pointer; }
+  .qchip i { font-style:normal; color:#12a35f; font-weight:800; }
+
+  /* ---------- 双列瀑布 feed ---------- */
+  .feed2 { margin-top:11px; column-count:2; column-gap:11px; }
+  .fcard { break-inside:avoid; margin-bottom:11px; }
+  .fcard .thumb { display:block; width:100%; height:96px; }
+  .fcard .ft { font-size:13.5px; font-weight:700; line-height:1.36; margin-top:7px; }
+  .fcard .fm { font-size:12px; color:#8a9691; margin-top:4px; }
+  .fcard .fp { font-size:14px; font-weight:800; color:#ff4d2e; margin-top:4px; }
+
+  /* ---------- 现在：字面召回的交通方案 ---------- */
+  .rectrans { margin-top:11px; border:1px solid #d9eee2; border-radius:14px; background:#f1fbf5; padding:5px 12px; }
+  .rectrans .rt { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid #e3f2e9; font-size:13.5px; }
+  .rectrans .rt:last-child { border-bottom:0; }
+  .rectrans .rt .ln { font-weight:700; color:#0a8a52; }
+  .rectrans .rt .pr { margin-left:auto; font-weight:800; color:#ff4d2e; }
+  .rectrans .rt .go { color:#12a35f; font-weight:800; }
+
+  /* ---------- 攻略笔记卡（双列瀑布 · 小红书式） ---------- */
+  .notes { margin-top:11px; column-count:2; column-gap:11px; }
+  .note { break-inside:avoid; margin-bottom:13px; }
+  /* 封面占位：position/overflow 必须放在基类上，否则 ::before 会以 .screen 为参照铺满整屏 */
+  .cover { position:relative; overflow:hidden; border-radius:11px; }
+  .note .cover { width:100%; height:112px; }
+  .note .cover i { position:absolute; left:7px; bottom:7px; font-style:normal; font-size:10px; font-weight:700; color:#fff;
+                   background:rgba(0,0,0,.42); border-radius:5px; padding:2px 7px; }
+  .note .nt { font-size:13.5px; font-weight:700; line-height:1.36; margin-top:7px; }
+  .note .nm { display:flex; align-items:center; gap:5px; font-size:11.5px; color:#8a9691; margin-top:7px; }
+  .note .nm .av { width:15px; height:15px; border-radius:50%; background:linear-gradient(135deg,#dbe6f0,#cfe0d6); flex:0 0 auto; }
+  .note .nm .lk { margin-left:auto; }
+  /* 封面占位图（攻略向，和商品卡区分开） */
+  .cover.pack { background:linear-gradient(180deg,#eef2ef,#e2e8e4); }
+  .cover.pack::before { content:""; position:absolute; inset:0; background-repeat:no-repeat;
+    background-image:linear-gradient(#ccd5d0,#ccd5d0),linear-gradient(#c3cfe4,#c3cfe4),linear-gradient(#e5d7c4,#e5d7c4),
+                     linear-gradient(#d6cdc0,#d6cdc0),linear-gradient(#c7d5ca,#c7d5ca),linear-gradient(#e2d2d7,#e2d2d7);
+    background-size:36% 30%,26% 22%,30% 20%,22% 26%,28% 26%,24% 18%;
+    background-position:8% 14%,60% 8%,34% 44%,74% 42%,10% 70%,62% 72%; }
+  .cover.paper { background:linear-gradient(180deg,#e9f2ec,#dde9e1); }
+  .cover.paper::before { content:""; position:absolute; left:13%; right:13%; top:16%; bottom:16%; background:#fff; border-radius:7px;
+    background-image:repeating-linear-gradient(#eef1ef 0 2px,rgba(0,0,0,0) 2px 12px); }
+  .cover.paper::after { content:"✓"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#12a35f; font-size:22px; font-weight:800; }
+  .cover.paper.cool { background:linear-gradient(180deg,#e6effa,#dbe7f6); }
+  .cover.paper.cool::after { content:"🎒"; font-size:18px; }
+  .cover.suit { background:linear-gradient(180deg,#f6ead9,#eee0cd); }
+  .cover.suit::before { content:""; position:absolute; left:16%; top:26%; width:68%; height:54%; border-radius:9px; border:2px solid #cbb394;
+    background:linear-gradient(180deg,#e8d8c4,#dcc7ae); }
+  .cover.suit::after { content:""; position:absolute; left:44%; top:17%; width:12%; height:11%; border:2px solid #b9a184; border-bottom:0; border-radius:5px 5px 0 0; }
+  .cover.city { background:linear-gradient(180deg,#bfe0f5 0%,#dceff9 52%,#f1e3c9 52%,#f7ecd8 100%); }
+  .cover.city::before { content:""; position:absolute; right:14%; top:15%; width:15%; height:15%; border-radius:50%; background:rgba(255,255,255,.85); }
+  .cover.city::after { content:""; position:absolute; left:-6%; bottom:8%; width:112%; height:24%; border-radius:50% 50% 0 0; background:rgba(212,178,118,.5); }
+  .cover.pack.cool { background:linear-gradient(180deg,#e8f0ea,#dbe7e0); }
+
+  /* ---------- 底部：胶囊（固定） ---------- */
+  .tray { padding:10px 20px 22px; display:flex; justify-content:center;
+          background:linear-gradient(180deg,rgba(255,255,255,0) 0%,#fff 58%); }
+  .capsule { height:46px; border-radius:23px; background:#fff; border:1.6px solid #b3e5c9; display:flex; align-items:center;
+             gap:8px; padding:0 13px 0 6px; box-shadow:0 8px 20px rgba(18,163,95,.2); cursor:pointer; }
+  .capsule .ava { width:34px; height:34px; border-radius:10px; background:#e8fdef; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .capsule .txt { font-size:14px; font-weight:800; color:#0a8a52; }
+  .capsule .chev { font-size:16px; font-weight:800; color:#12a35f; }
+
+  /* ---------- AI 承接页 ---------- */
+  .chat { padding:16px 20px 0; }
+  .airow { display:flex; align-items:center; gap:8px; margin-top:14px; }
+  .airow:first-child { margin-top:2px; }
+  .airow .ava { width:27px; height:27px; border-radius:9px; background:#e8fdef; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+  .airow .nm { font-size:14px; font-weight:700; color:#3c4a44; }
+  .bubble-user { width:fit-content; margin-left:auto; max-width:82%; background:#e6f8ec; border-radius:17px 17px 5px 17px;
+                 padding:11px 15px; font-size:14.5px; line-height:1.45; }
+  .chatans { margin-top:9px; font-size:14.5px; line-height:1.7; color:#243029; }
+  .chatans b { font-weight:800; }
+  .qlist { margin-top:13px; border-radius:13px; background:#f8fbf9; border:1px solid #eaf1ed; padding:0 14px; }
+  .qlist i { display:flex; align-items:center; font-style:normal; font-size:14px; color:#243029;
+             padding:13px 0; border-bottom:1px solid #eef3f0; cursor:pointer; }
+  .qlist i:last-child { border-bottom:0; }
+  .qlist i::before { content:"✦"; color:#12a35f; font-size:12px; margin-right:9px; }
+  .qlist i::after { content:"›"; margin-left:auto; color:#12a35f; font-weight:800; font-size:16px; }
+  .seclabel { margin-top:18px; font-size:15px; font-weight:800; }
+  .planrow { display:flex; gap:10px; margin-top:10px; overflow:hidden; }
+  .plancard { flex:0 0 auto; width:272px; border-radius:14px; border:1px solid #cdefd9;
+              background:linear-gradient(105deg,#e6f8ec,#f4fdf7); padding:13px; cursor:pointer; }
+  .plancard .ph { font-size:14.5px; font-weight:800; display:flex; align-items:center; }
+  .plancard .ph span { margin-left:auto; font-size:10.5px; font-weight:700; color:#0a8a52; background:#fff; border-radius:6px; padding:2px 7px; }
+  .plancard .pd { margin-top:9px; font-size:12.5px; line-height:1.62; color:#2c3a33; }
+  .plancard .pf { margin-top:10px; font-size:12px; color:#4f8f6b; display:flex; align-items:center; }
+  .plancard .pf b { margin-left:auto; color:#0a8a52; }
+
+  /* ---------- 底部输入框（小红书式，固定） ---------- */
+  .ipbar { display:flex; align-items:center; gap:11px; padding:11px 18px 20px; background:#fff; border-top:1px solid #eef1ef; }
+  .ipbar .voice { width:30px; height:30px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; color:#3c4a44; }
+  .ipbox { flex:1; height:46px; border-radius:23px; background:#f4f6f5; border:1px solid #e8ecea;
+           display:flex; align-items:center; padding:0 17px; font-size:14px; color:#9aa8a1; }
+  .ipico { width:28px; height:28px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; color:#3c4a44; font-size:19px; }
+  .ipnote { text-align:center; font-size:11px; color:#c3ccc7; padding:0 0 10px; background:#fff; }
+
+  /* ---------- 出页 ---------- */
+  .outpage { padding:16px 20px 0; }
+  .outcard { border:1px solid #eef1ef; border-radius:14px; padding:16px; background:#fff; }
+  .outcard .big { height:190px; border-radius:12px; }
+  .outcard h3 { font-size:19px; font-weight:800; margin-top:14px; }
+  .outcard .sub { font-size:13px; color:#8a9691; margin-top:8px; line-height:1.6; }
+  .outcard .price { font-size:24px; font-weight:800; color:#ff4d2e; margin-top:12px; }
+  .outcard .buy { margin-top:16px; height:48px; border-radius:24px; background:#12a35f; color:#fff; font-size:16px; font-weight:800;
+                  display:flex; align-items:center; justify-content:center; }
+
+  /* ---------- 动效（克制版） ---------- */
+  .page { position:absolute; inset:0; }
+  @keyframes slideInR { from { transform:translateX(26px); opacity:.45; } to { transform:none; opacity:1; } }
+  @keyframes slideInL { from { transform:translateX(-26px); opacity:.45; } to { transform:none; opacity:1; } }
+  @keyframes fadeIn   { from { opacity:.4; } to { opacity:1; } }
+  @keyframes popIn    { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+  .content.animR { animation:slideInR .26s cubic-bezier(.22,.7,.3,1); }
+  .content.animL { animation:slideInL .26s cubic-bezier(.22,.7,.3,1); }
+  .content.animF { animation:fadeIn .22s ease; }
+  .page.animF { animation:fadeIn .22s ease; }
+  /* 换页时：只有内容区 + 头部那一行（搜索框/标题）+ 底部渐变；tab 栏与状态栏不动 */
+  .content.fade-out, .searchrow.fade-out, .titlerow.fade-out, .bottom.fade-out { opacity:0; transition:opacity .12s ease; }
+  .searchrow.fade-in, .titlerow.fade-in, .bottom.fade-in { animation:fadeIn .26s ease; }
+  .round.anim-pop { animation:popIn .32s cubic-bezier(.22,.7,.3,1); }
+  /* 按压反馈 */
+  [data-go],[data-ai],[data-s2],[data-ask],[data-back] { transition:transform .12s ease; }
+  [data-go]:active,[data-ai]:active,[data-s2]:active,[data-ask]:active,[data-back]:active { transform:scale(.98); }
+  .scene-btn:active, .seg button:active { transform:scale(.985); }
+
+  /* ---------- 触发热区 ---------- */
+  .hot { position:relative; }
+  #devNow .hot::after { display:none; }
+  #devNow { cursor:default; }
+  body.showhot .hot::after { content:""; position:absolute; inset:-3px; border:1.5px dashed #ff7a45; border-radius:12px; pointer-events:none; }
+  /* 「现在」一侧只读：不出热区（放最后 + !important，避免被上一条盖住） */
+  #devNow .hot::after { display:none !important; }
+
+  /* ---------- 右栏：状态说明 + 日志 ---------- */
+  .nowstate { font-size:14px; font-weight:800; }
+  .nowstate small { display:block; font-weight:500; font-size:12.5px; color:#7d8a83; margin-top:5px; line-height:1.6; }
+  .ctxbox { margin-top:12px; border-radius:11px; background:#f2fbf6; border:1px dashed #bfe7cf; padding:11px 13px; font-size:12.5px; line-height:1.7; color:#29463a; }
+  .ctxbox b { color:#0a8a52; }
+  .log { max-height:520px; overflow-y:auto; }
+  .logrow { font-size:12.5px; line-height:1.6; padding:9px 0; border-bottom:1px dashed #eef1ef; }
+  .logrow:last-child { border-bottom:0; }
+  .logrow .n { display:inline-block; width:18px; height:18px; border-radius:50%; background:#eafaf0; color:#0a8a52;
+               font-size:11px; font-weight:800; text-align:center; line-height:18px; margin-right:6px; }
+  .logrow .to { color:#0a8a52; font-weight:700; }
+  .logrow .no { color:#b96a20; font-weight:700; }
+
+  /* 精选热榜（横滑榜单卡） */
+  .boards { margin-top:10px; display:flex; gap:11px; overflow:hidden; }
+  .board { flex:0 0 auto; width:224px; border-radius:14px; padding:11px 11px 9px;
+           background:linear-gradient(180deg,#fff1de,#fffaf2); border:1px solid #ffe3c2; }
+  .board .bh { font-size:14.5px; font-weight:800; color:#b96a20; display:flex; align-items:center; gap:3px; padding:1px 3px 9px; }
+  .board .bh span { font-size:12px; color:#c98a3c; }
+  .board .brows { background:#fff; border-radius:10px; padding:2px 9px; }
+  .brow { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f5f2ee; }
+  .brow:last-child { border-bottom:0; }
+  .rank { width:20px; height:20px; border-radius:6px; flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+          font-size:12px; font-weight:800; color:#fff; background:linear-gradient(180deg,#ff8a5b,#f5502e); }
+  .rank.g2 { background:linear-gradient(180deg,#ffb457,#f58a2e); }
+  .rank.g3 { background:linear-gradient(180deg,#ffd06b,#f5b02e); }
+  .brow .thumb { width:40px; height:40px; border-radius:8px; }
+  .binfo { flex:1; min-width:0; }
+  .bname { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bdesc { font-size:11.5px; color:#9a9a9a; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* 行程服务卡（场站） */
+  .svc { margin:12px 0 0; border-radius:15px; background:#fff; border:1.5px solid #ffe0cc; box-shadow:0 3px 10px rgba(230,120,40,.08); padding:12px 13px; }
+  .svc .h { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:800; color:#c0641e; }
+  .svc .h .tag { margin-left:auto; font-size:11px; font-weight:700; color:#c0641e; background:#fff3e8; border-radius:7px; padding:3px 8px; }
+  .svc .rows { display:flex; gap:7px; margin-top:10px; }
+  .svc .rows .b { flex:1; text-align:center; font-size:13px; font-weight:700; color:#8a4a15; background:#fff7f0; border:1px solid #ffe6d2; border-radius:10px; padding:9px 0; }
+  /* 6 宫格 / 小卡 / 列表行副行 */
+  .pgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:12px; }
+  .pgrid .pchip { text-align:center; padding:9px 4px; }
+  .pcards { display:flex; gap:8px; margin-top:9px; }
+  .pcard { flex:1; border:1px solid #f0e2d2; border-radius:11px; padding:9px; background:linear-gradient(180deg,#fff4e6,#fffcfa); }
+  .pcard .t { font-size:12.5px; font-weight:700; color:#b96a20; }
+  .pcard .r { font-size:11.5px; color:#7d8a83; margin-top:5px; line-height:1.45; }
+  .prow .li .c { font-size:12px; color:#12a35f; margin-top:4px; }
+  /* feed 里的 AI 推荐理由（列表前几位）：细绿线引导 + 一整句「✦ AI 推荐理由：…」，不描边、不铺底色 */
+  .aireason { margin-top:8px; padding-left:9px; border-left:2.5px solid #a9e8c4;
+              font-size:12.5px; line-height:1.6; color:#3a5a4a; }
+  .aireason b { font-size:12px; font-weight:800; color:#0a8a52; }
+  .aireason b::before { content:"✦ "; font-size:9.5px; color:#12a35f; }
+  .aireason b::after { content:"："; }
+  .score { display:inline-block; font-size:11px; font-weight:800; color:#fff; background:#12a35f; border-radius:4px; padding:1px 6px; margin-right:4px; }
+  .star { font-size:10.5px; color:#9aa8a1; border:1px solid #e8ecea; border-radius:4px; padding:1px 6px; margin-left:5px; }
+  .pnote { font-size:12.5px; color:#b3bdb8; margin-top:10px; }
+  .pbanner { margin-top:12px; border-radius:12px; background:linear-gradient(100deg,#eef4ff,#f8fbff); border:1px solid #dde8f7; padding:10px 12px; }
+  .pbanner .t { font-size:12.5px; font-weight:800; color:#3b6ea8; }
+  .pbanner .d { font-size:11.5px; color:#7d8a99; margin-top:4px; }
+</style>
+<body>
+<div class="app">
+  <div class="left">
+    <div class="panel">
+      <div class="ttl">场景</div>
+      <div id="scenes"></div>
+    </div>
+    <div class="panel">
+      <div class="ttl">开关</div>
+      <label class="sw"><input type="checkbox" id="swHot">显示热区</label>
+      <label class="sw"><input type="checkbox" id="swCtx" checked>显示上下文包</label>
+      <label class="sw"><input type="checkbox" id="swTicket" checked>已订票（仅场站生效）</label>
+      <div style="margin-top:8px">
+        <div class="sw" style="padding-bottom:2px">返回行为</div>
+        <div class="seg" id="segRet">
+          <button data-ret="A" class="on">A 直接退出</button>
+          <button data-ret="B">B 回上个 tab</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ttl">怎么用</div>
+      <div class="muted">右侧手机里的<b>虚线框</b>都是可点的。走一遍后看右下角日志——它记下每一步去了哪、带了什么上下文。</div>
+    </div>
+  </div>
+
+  <div class="phones">
+    <div class="devwrap">
+      <div class="devcap now"><i>现在</i>线上落地页（只读）</div>
+      <div class="dev" id="devNow"></div>
+    </div>
+    <div class="devwrap">
+      <div class="devcap next"><i>以后</i>点这里走路径</div>
+      <div class="dev" id="devNext"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="panel">
+      <div class="ttl">当前状态</div>
+      <div class="nowstate" id="stateName">—</div>
+      <div id="ctxWrap"><div class="ctxbox" id="ctxBox"></div></div>
+    </div>
+    <div class="panel">
+      <div class="ttl">路径日志</div>
+      <div class="log" id="log"><div class="muted">还没有操作。从右侧手机里点一个虚线框开始。</div></div>
+    </div>
+  </div>
+</div>
+<script>
+/* ================= 手机壳 ================= */
+const STATUS = '<div class="statusbar"><div>19:18</div><div class="mid"><span class="logo-dot"></span>同程旅行</div>'
+  + '<div class="right"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="batt"><i></i></span></div></div>';
+
+const TABS = (entry) => entry
+  ? '<div class="tabs"><div class="tab ai hot" data-ai="1" data-say="点 tab 栏「AI」">✦ AI</div>'
+    + '<div class="tab on">综合</div><div class="tab">酒店</div><div class="tab">景点</div><div class="tab">旅游</div><div class="tab">攻略</div></div>'
+  : '<div class="tabs"><div class="tab on">综合</div><div class="tab">酒店</div><div class="tab">景点</div><div class="tab">旅游</div><div class="tab">攻略</div></div>';
+
+const topSearch = (q, entry) => '<div class="top">' + STATUS
+  + '<div class="searchrow"><div class="back hot" data-back="1">‹</div><div class="searchbox">' + q + '</div><div class="dots">•••</div></div>'
+  + TABS(entry) + '</div>';
+
+const topAI = (title, back) => '<div class="top">' + STATUS
+  + '<div class="titlerow"><div class="back hot" data-back="1">‹</div><div class="pttl">' + title + '</div><div class="dots">•••</div></div>'
+  + '<div class="tabs"><div class="tab ai on">✦ AI</div><div class="tab hot" data-go="' + back + '" data-say="切回「综合」tab">综合</div>'
+  + '<div class="tab">酒店</div><div class="tab">景点</div><div class="tab">旅游</div><div class="tab">攻略</div></div></div>';
+
+const capsule = () => '<div class="bottom"><div class="tray"><div class="capsule hot" data-ai="1" data-say="点底部「问一问」">'
+  + '<div class="ava">🤖</div><div class="txt">问一问</div><div class="chev">›</div></div></div></div>';
+
+const inputbar = '<div class="bottom"><div class="ipbar"><div class="voice">🎙</div>'
+  + '<div class="ipbox">发消息或按住说话…</div><div class="ipico">◎</div><div class="ipico">＋</div></div>'
+  + '<div class="ipnote">原型示意：输入框不做输入响应</div></div>';
+
+const PLABEL = (t, s) => '<div class="plabel">' + t + (s ? '<small>' + s + '</small>' : '') + '</div>';
+const META = (meta) => '<div class="mapmeta">' + meta + '</div>';
+const hu = (go, say) => ' class="hot" data-go="' + go + '" data-say="' + say + '"';
+
+/* ================= 通用组件 ================= */
+const MAPSVG = '<div class="mapview"><svg class="mapsvg" viewBox="0 0 350 96">'
+  + '<rect width="350" height="96" fill="#eaf1ee"/>'
+  + '<path d="M0 0h350v24L0 36Z" fill="#f7fbf9"/><path d="M0 96V70l350-12v38Z" fill="#f4f9f6"/>'
+  + '<path d="M-10 76C80 70 180 56 360 44" stroke="#fff" stroke-width="8" fill="none"/>'
+  + '<path d="M60-8C92 30 120 60 146 104" stroke="#f7dca1" stroke-width="7" fill="none"/>'
+  + '<path d="M238-8C244 26 258 56 274 104" stroke="#fff" stroke-width="6" fill="none"/>'
+  + '<g fill="#a7b3ad" font-size="10"><text x="16" y="56" transform="rotate(-6 16 56)">东三环</text>'
+  + '<text x="196" y="24" transform="rotate(4 196 24)">建国路</text><text x="96" y="90" transform="rotate(-8 96 90)">广渠路</text></g>'
+  + '<circle cx="72" cy="40" r="9" fill="#2f6ef2"/><circle cx="90" cy="32" r="9" fill="#2f6ef2"/>'
+  + '<circle cx="168" cy="34" r="9" fill="#12a35f"/><circle cx="228" cy="28" r="9" fill="#f5821f"/>'
+  + '</svg><div class="maplegend"><span><i class="s"></i>景点</span><span><i class="h"></i>酒店</span><span><i class="t"></i>交通</span></div></div>';
+
+const mapCard = (t, meta) => '<div class="mapcard"><div class="maphead"><div class="mt">' + t + '</div>'
+  + '<div class="mo hot" data-go="S7" data-say="点「打开地图」">打开地图 ›</div></div>' + META(meta) + MAPSVG + '</div>';
+
+const feed2 = (cards) => '<div class="feed2">' + cards.map(c =>
+  '<div class="fcard hot" data-go="S6" data-say="点 feed 卡片「' + c[1] + '」">'
+  + '<div class="thumb ' + c[0] + '">' + (c[4] ? '<i class="ctag">' + c[4] + '</i>' : '') + '</div>'
+  + '<div class="ft">' + c[1] + '</div><div class="fm">' + c[2] + '</div>'
+  + (c[3] ? '<div class="fp">' + c[3] + '</div>' : '') + '</div>').join('') + '</div>';
+
+/* 攻略笔记（双列瀑布，点进攻略详情 S9） */
+const notes2 = (notes) => '<div class="notes">' + notes.map(n =>
+  '<div class="note hot" data-go="S9" data-note="' + n[1] + '" data-note-author="' + n[2] + '" data-note-like="' + n[4] + '"'
+  + ' data-note-cover="' + n[0] + '"'
+  + ' data-say="点攻略笔记「' + n[1] + '」">'
+  + '<div class="cover ' + n[0] + '"><i>' + n[3] + '</i></div><div class="nt">' + n[1] + '</div>'
+  + '<div class="nm"><span class="av"></span><span>' + n[2] + '</span><span class="lk">♡ ' + n[4] + '</span></div></div>').join('') + '</div>';
+
+/* 现在：按 query 切词召回的交通方案 */
+const recTrans = (rows) => '<div class="rectrans">' + rows.map(r =>
+  '<div class="rt hot" data-go="S6" data-say="点交通方案「' + r[0] + '」">'
+  + '<span class="ln">' + r[0] + '</span><span class="pr">' + r[1] + '</span><span class="go">›</span></div>').join('') + '</div>';
+
+const prows = (rows) => rows.map(r =>
+  '<div class="prow hot" data-go="S6" data-say="点「' + r[1] + '」"><div class="thumb ' + r[0] + '"></div>'
+  + '<div class="li"><div class="a">' + r[1] + '</div><div class="b">' + r[2] + '</div></div><div class="pr">' + r[3] + '</div></div>').join('');
+
+/* 内容行（攻略 / 清单笔记：有作者和互动量，没有价格） */
+const noteRows = (rows) => rows.map(r =>
+  '<div class="prow hot" data-go="S9" data-note="' + r[1] + '" data-note-author="' + r[2] + '" data-note-like="' + r[3] + '" data-note-cover="' + r[0] + '"'
+  + ' data-say="点攻略「' + r[1] + '」"><div class="cover ' + r[0] + '" style="width:52px;height:52px;border-radius:9px"></div>'
+  + '<div class="li"><div class="a">' + r[1] + '</div><div class="b">' + r[2] + ' · 攻略</div></div>'
+  + '<div class="pr" style="color:#8a9691;font-size:12.5px">♡ ' + r[3] + '</div></div>').join('');
+
+const planCard = (r) => '<div class="plancard hot" data-go="S3" data-say="点「' + r[0] + '」">'
+  + '<div class="ph">' + r[0] + '<span>AI 生成</span></div><div class="pd">' + r[1] + '</div>'
+  + '<div class="pf">' + r[2] + '<b>查看 ›</b></div></div>';
+
+const askboard = (c) => '<div class="askboard"><div class="askhead">大家都在问 <b>✦</b></div>'
+  + [c.asks.slice(0, 3), c.asks.slice(3, 6)].map((r, i) => '<div class="marquee' + (i ? ' rev' : '') + '"><div class="track">'
+    + r.concat(r).map(q => '<span class="qchip hot" data-s2="ask" data-q="' + q + '" data-say="点问题 chip「' + q + '」">' + q + '<i>›</i></span>').join('')
+    + '</div></div>').join('') + '</div>';
+
+const ppoiCard = (id) => {
+  const c = SC[id].card;
+  return '<div class="ppoi"><div class="n">' + c.name + '<i>' + c.badge + '</i></div>'
+    + '<div class="m">' + c.meta + '</div>' + (c.tag ? '<div class="b">' + c.tag + '</div>' : '')
+    + (c.addr ? '<div class="m">📍 ' + c.addr + '</div>' : '')
+    + '<div class="p"><b>' + c.price + '<small>起</small></b>'
+    + '<span class="hot" data-go="S6" data-say="点「查看详情」">查看详情</span></div>'
+    + '<div class="pentries">' + c.entries.map(e =>
+        '<div class="pe hot" data-go="S6" data-say="点入口「' + e[1] + '」"><span class="pi">' + e[0] + '</span><span class="pt">' + e[1] + '</span></div>'
+      ).join('') + '</div></div>';
+};
+
+const boards = (id) => {
+  const b = SC[id].boards;
+  return '<div class="boards">' + b.map(bd => '<div class="board">'
+    + '<div class="bh">' + bd.title + ' <span>›</span></div><div class="brows">'
+    + bd.rows.map((r, i) => '<div class="brow"><span class="rank' + (i === 1 ? ' g2' : i === 2 ? ' g3' : '') + '">' + (i + 1) + '</span>'
+        + '<div class="thumb ' + r[0] + '"></div><div class="binfo"><div class="bname">' + r[1] + '</div><div class="bdesc">' + r[2] + '</div></div></div>').join('')
+    + '</div></div>').join('') + '</div>';
+};
+
+const aicardHTML = (id, btnLabel, nowMode) => {
+  const c = SC[id];
+  const a = (nowMode && c.nowAi) ? c.nowAi : c.ai;
+  /* 置顶场景（aiFirst）用"首位版"：答案多露一点 + 参考图 + 关联资源，过长折叠 */
+  const first = !nowMode && !!c.aiFirst && !a.dlines;
+  let body = '';
+  if (a.dlines) {
+    body = a.dlines.map(d => '<div class="dline"><span class="day">' + d[0] + '</span><span>' + d[1] + '</span><span class="hint">' + d[2] + '</span></div>').join('')
+      + (a.meta ? '<div class="meta">' + a.meta + '</div>' : '');
+  } else {
+    /* 首位版多露要点；非首位只给结论。超长由 CSS 省略号缩略，不再做卡内展开 */
+    body = '<div class="ans' + (first ? ' first' : '') + (a.nowver ? ' nowver' : '') + '">' + a.ans
+      + ((first && a.more) ? a.more : '') + '</div>';
+  }
+  /* 线上版：答案下面还有「两张图 + 参考来源」 */
+  if (a.imgs) body += '<div class="aiimgs">' + a.imgs.map(cls => '<span class="thumb ' + cls + '"></span>').join('') + '</div>';
+  if (a.source) body += '<div class="aisrc"><span class="thumb ' + a.source[0] + '"></span>'
+    + '<div class="si"><div class="st">参考来源</div><div class="sd">' + a.source[1] + '</div></div></div>';
+  if (first && a.rel) body += '<div class="airel"><div class="rhead">关联资源</div>' + a.rel.map(r =>
+      '<div class="rr hot" data-go="S6" data-say="点关联资源「' + r[1] + '」"><div class="thumb ' + r[0] + '"></div>'
+      + '<div class="li"><div class="a">' + r[1] + '</div><div class="b">' + r[2] + '</div></div>'
+      + '<div class="pr">' + r[3] + '</div></div>').join('') + '</div>';
+  return '<div class="aicard' + (a.nowver ? ' nowver' : '') + '"><div class="h"><div class="ava">🤖</div><div class="tt">' + a.title
+    + '</div><div class="tag' + (a.nowver ? ' gray' : '') + '">' + a.tag + '</div></div>'
+    + body + '<div class="btn hot" data-s2="entry" data-say="点卡上「' + (a.btn || btnLabel || '查看全部') + '」">'
+    + (btnLabel || a.btn || '查看全部 ›') + '</div></div>';
+};
+
+/* ================= 场景数据 ================= */
+const SC = {
+  zz: {
+    label:'景区 · 拙政园', sub:'名词 query → 实体卡在前', kind:'scenic', q:'拙政园', topic:'拙政园',
+    name:'以后 · 拙政园落地页（名词 query）', desc:'按 §3.2：名词 query → 实体卡在前，AI 卡紧随其后。',
+    nowDesc:'没有 AI 入口：tab 栏只有 6 个业务 tab，页内没有 AI 卡，底部也没有胶囊。',
+    ctx:'query=拙政园 ｜ 意图=景区 ｜ tab=综合 ｜ 卡片条件=无',
+    card:{ name:'拙政园', badge:'5A', meta:'4.6分 · 14273点评 · 苏州人气打卡榜 NO.1', tag:'园林古镇 · 江南园林典范',
+           addr:'苏州市姑苏区东北街178号', price:'¥80',
+           entries:[['🎫','预订门票'],['🏨','附近酒店'],['🛌','附近民宿'],['🚌','一日游'],['📍','附近景点']] },
+    ai:{ title:'拙政园怎么玩更值', tag:'AI 解读', ans:'· <b>7:30 开园就进</b>，9 点后人流翻倍<br>· 东园 + 西园约 <b>2.5 小时</b>，联票含苏州博物馆<br>· 周一闭馆，<b>需提前 1 天预约</b>' },
+    mapTitle:'地图 · 拙政园', mapMeta:'景点 9 · 酒店 2 · 动线 1',
+    asks:['需要提前预约吗','拙政园和留园选哪个','几点人最少','门票当天能买吗','逛完附近吃什么','联票包含哪些'],
+    feed:[['land','写给5-6月去苏州的姐妹','三年二班路小雨 · 2662'],['warm','苏州两天一夜怎么排不累','小满旅行记 · 1180'],
+          ['cool','苏州 · 留园 · 门票','4.6分 · 2.8万点评','¥45 起'],['hotel','苏州平江路附近酒店','4.7分 · 步行 6 分钟','¥268 起'],
+          ['warm','狮子林 · 门票','4.5分 · 4800点评','¥40 起'],['land','山塘街夜游 · 含船票','4.7分 · 已订 2100','¥98 起']],
+    routes:[['苏州 1 日 · 拙政园 + 苏博','D1 拙政园 · 苏州博物馆 · 平江路','已匹配 6 个可订资源'],
+            ['苏州 2 天 1 晚 · 园林线','D1 拙政园 · 狮子林<br>D2 虎丘 · 山塘街','已匹配 9 个可订资源']],
+    plan:{ name:'苏州 1 日 · 拙政园 + 苏博', day:'D1', line:'拙政园 · 狮子林 · 平江路', hint:'园林线',
+           meta:'已匹配 6 个可订资源 · 1 家酒店',
+           res:[['warm','拙政园门票 · 当日可订','免排队入园','¥80'],['cool','拙政园讲解 1.5 小时','本地导游 · 含耳机','¥59']] },
+    convo:{ entry:{ q:'拙政园怎么玩更值', a:'· <b>7:30 开园就进</b>，9 点后人流翻倍<br>· 东园 + 西园约 <b>2.5 小时</b>，联票含苏州博物馆<br>· 周一闭馆，<b>需提前 1 天预约</b>', chips:['需要提前预约吗？','和留园选哪个？','几点人最少？'] },
+            ask:{ q:'需要提前预约吗？', a:'需要，<b>至少提前 1 天</b>在官方渠道实名预约，当天现场不售票。<br>· 旺季（3–11 月）建议提前 <b>2–3 天</b><br>· 周一闭馆，别订周一', chips:['门票当天能买吗？','几点人最少？','和留园选哪个？'] } },
+  },
+
+  zzq: {
+    label:'景区 · 迪士尼亲子票多少钱', sub:'问题 query → AI 卡置顶', kind:'scenic', q:'上海迪士尼亲子票多少钱', topic:'迪士尼',
+    aiFirst:true,
+    name:'以后 · 迪士尼亲子票落地页（问题 query）', desc:'按 §3.2：带商品/价格意图的 query → AI 卡置顶；这一版把答案落到票种和价格（亲子票 1 大 1 小 ¥780 起、3 岁以下免票），可继续追问；feed 也按「亲子」这个意图换内容 —— 亲子攻略、亲子票、含儿童乐园的酒店前置。',
+    nowDesc:'线上这一屏其实已经有 AI 回复卡（「内容已生成 · 仅供参考」+ 参考来源 + 展开行程详情），但它只答到"基础票价 435 起、会按日期浮动、去 APP 里查"；feed 给的全是迪士尼本体资源（全攻略 / 景区卡 / 周边酒店 / 陆家嘴），没有一条贴着"亲子"。',
+    ctx:'query=上海迪士尼亲子票多少钱 ｜ 意图=景区 ｜ tab=综合 ｜ 卡片条件=票种价格',
+    card:{ name:'上海迪士尼度假区', badge:'5A', meta:'4.9分 · 12.8万点评 · 浦东新区川沙镇', tag:'主题乐园 · 亲子首选',
+           addr:'上海市浦东新区川沙镇黄赵路310号', price:'¥475',
+           entries:[['🎫','预订门票'],['⚡','快速通行'],['🏨','附近酒店'],['🚌','一日游'],['🚇','交通']] },
+    ai:{ title:'上海迪士尼 · 亲子票价格', tag:'AI 直答',
+         ans:'亲子票（1 大 1 小）<b>¥780 起</b>，含 1 日门票；周末 / 节假日约 <b>¥860</b>。',
+         more:'<br>· 3 岁以下免票；儿童票（1.0–1.4m）<b>¥420</b><br>· 2 大 1 小买家庭票 ¥1,180 更划算<br>· 需实名预约入园，价格随日期浮动（更新于 10-15）',
+         imgs:['land','warm'],
+         rel:[['warm','上海迪士尼 亲子票（1 大 1 小）· 1 日','当日可订 · 需实名','¥780'],
+              ['cool','迪士尼儿童票（1.0–1.4m）· 1 日','当日可订 · 需实名','¥420']] },
+    /* 线上（现在）那张 AI 回复卡的原文口径：只给基础票价 + 让你自己去 APP 查 */
+    nowAi:{ nowver:true, title:'上海迪士尼度假区', tag:'内容已生成 · 仅供参考',
+            ans:'上海迪士尼度假区 › 的亲子票价格会根据出行日期（平日 / 高峰日 / 特定高峰日）有所浮动，目前基础票价参考约 <b>435 起</b>，亲子票通常为 1 大 1 小组合，具体价格会随购票日期、票种类型动态调整。<br>如果想了解实时的亲子票票价与适用人群规则，可在同程旅行 APP 或小程序搜索「上海迪士尼度假区 ›」查看最新信息。',
+            imgs:['land','warm'], source:['warm','门票 · 上海迪士尼度假区'], btn:'展开行程详情 ›' },
+    mapTitle:'地图 · 上海迪士尼', mapMeta:'景点 12 · 酒店 86 · 交通 24',
+    asks:['周末多少钱','亲子票和家庭票哪个划算','3 岁要买票吗','能退改吗','怎么预约入园','早鸟票更便宜吗'],
+    /* 现在：迪士尼本体资源（源自 10-15 线上截图），不贴 query 的"亲子" */
+    feedNow:[['cool','上海迪士尼全攻略','平安 · 13179 浏览','','攻略'],
+             ['land','上海迪士尼度假区','4.7分 · 上海全城必玩榜 No.1','¥435 起','景点'],
+             ['hotel','上海邻家露营地度假酒店(国际旅游度假区店)','高档型 · 儿童乐园','¥272 起','酒店'],
+             ['hotel','上海百万石温泉酒店(比斯特购物村店)','豪华型 · 温泉体验','¥1145 起','酒店'],
+             ['cool','上海 citywalk 5 天 4 晚亲子游','亲子出行记 · 2180 浏览','','攻略'],
+             ['land','上海 · 陆家嘴','热门景点 · 东方明珠','¥180 起','景点']],
+    /* 以后：按"亲子"给内容 —— 亲子攻略 + 亲子票 + 亲子房前置 */
+    feed:[['cool','带 4 岁娃玩迪士尼，一天怎么排不累','亲子出行记 · 6320 浏览','','攻略'],
+          ['cool','迪士尼儿童免票 / 身高要求，一次说清','迪士尼遛娃指南 · 1.8万浏览','','攻略'],
+          ['warm','上海迪士尼 亲子票（1 大 1 小）· 1 日','当日可订 · 需实名','¥780 起','门票'],
+          ['hotel','迪士尼度假区亲子房酒店 · 含儿童乐园','4.8分 · 步行 10 分钟','¥468 起','酒店'],
+          ['warm','迪士尼儿童票（1.0–1.4m）· 1 日','当日可订 · 需实名','¥420 起','门票'],
+          ['land','上海迪士尼 1 日游 · 亲子慢线','4.8分 · 含门票','¥980 起','一日游']],
+    routes:[['上海迪士尼 1 日 · 亲子线','D1 早进园 · 花车巡游 · 城堡烟花','已匹配 8 个可订资源'],
+            ['上海迪士尼 2 日 · 慢玩线','D1 主园慢玩<br>D2 玩具总动员 + 小镇','已匹配 12 个可订资源']],
+    plan:{ name:'上海迪士尼 1 日 · 亲子线', day:'D1', line:'早进园 · 花车巡游 · 城堡烟花', hint:'亲子线',
+           meta:'已匹配 8 个可订资源 · 2 家酒店',
+           res:[['warm','亲子票（1 大 1 小）· 1 日','当日可订 · 需实名','¥780'],['cool','迪士尼快速通行 · 3 项','免排队 · 当日可订','¥399']] },
+    convo:{ entry:{ q:'上海迪士尼亲子票多少钱', a:'亲子票（1 大 1 小）<b>¥780 起</b>，含 1 日门票。<br>· 周末 / 节假日约 <b>¥860</b><br>· 3 岁以下免票，儿童票 ¥420', chips:['周末多少钱？','亲子票和家庭票哪个划算？','能退改吗？'] },
+            ask:{ q:'周末多少钱？', a:'周末亲子票约 <b>¥860</b>，比平日贵约 ¥80；<br>· 周日通常比周六便宜 ¥20–40<br>· 连续两天入园可买两日票，均摊更低', chips:['亲子票和家庭票哪个划算？','能退改吗？','怎么预约入园'] } },
+  },
+
+  bj: {
+    label:'目的地 · 北京', sub:'名词 query → 热榜在前', kind:'dest', q:'北京', topic:'北京',
+    name:'以后 · 北京落地页（名词 query）', desc:'按 §3.2：名词 query → 目的地实体模块（标题 / 热榜）在前，AI 行程卡在后。',
+    nowDesc:'只有标题、精选热榜和长 feed；AI 行程是一条跳转 banner，不承接追问。',
+    ctx:'query=北京 ｜ 意图=目的地 ｜ tab=综合 ｜ 卡片条件=4 天 3 晚',
+    ptitle:'北京', pchips:['住酒店','逛景点','火车票','机票','民宿'],
+    boards:[{ title:'景点精选榜', rows:[['warm','北京环球度假区','大片世界 在此成真'],['cool','泡泡玛特城市乐园','人气精灵 labubu'],['land','北京国际鲜花港','入目皆花影 蝶自来']] },
+            { title:'热门区域', rows:[['cool','天安门广场','56% 用户选择'],['warm','北京环球度假区','11% 用户选择'],['land','北京朝阳站','10% 用户选择']] }],
+    ai:{ title:'北京 4 天 3 晚', tag:'AI 生成',
+         dlines:[['D1','天安门 · 故宫 · 景山','经典中轴'],['D2','八达岭长城一日','已配往返交通'],['D3','颐和园 · 圆明园 · 什刹海','慢节奏']],
+         meta:'已匹配 12 个可订资源 · 3 家酒店' },
+    banner:'AI 行程规划 · 北京 4 天 3 晚',
+    mapTitle:'地图看北京', mapMeta:'景点 128 · 酒店 233 · 交通 46',
+    asks:['故宫几点人少','长城怎么去最省事','带娃住哪个区','北京 4 天够玩吗','环球影城怎么去','北京南站附近住哪'],
+    feed:[['land','北京环球度假区','4.6分 · 1.2万点评 · 主题乐园','¥528 起'],['hotel','北京朝阳门附近高分酒店','4.8分 · 6735点评 · 高档型','¥688 起'],
+          ['warm','故宫博物院 · 门票','4.8分 · 18.2万点评','¥60 起'],['cool','北京 · 天坛公园 · 门票','4.7分 · 需预约','¥34 起'],
+          ['land','八达岭长城一日游 · 含往返','4.7分 · 2.1万人已订','¥168 起'],['warm','什刹海胡同游 · 三轮车','4.6分 · 1280人已订','¥120 起']],
+    routes:[['北京 4 天 3 晚 · 经典中轴','D1 天安门 · 故宫 · 景山<br>D2 八达岭长城<br>D3 颐和园 · 什刹海','已匹配 12 个可订资源'],
+            ['北京 3 天 2 晚 · 亲子','D1 环球影城 · 亲子慢线<br>D2 动物园 · 海洋馆<br>D3 科技馆 · 奥林匹克公园','已匹配 9 个可订资源']],
+    plan:{ name:'北京 4 天 3 晚 · 经典中轴', day:'D1', line:'天安门 · 故宫 · 景山', hint:'经典中轴',
+           meta:'已匹配 12 个可订资源 · 3 家酒店',
+           res:[['land','北京环球度假区','4.6分 · 1.2万点评','¥528'],['hotel','北京朝阳门附近高分酒店','4.8分 · 6735点评','¥688']] },
+    convo:{ entry:{ q:'北京 4 天 3 晚', a:'D1 天安门 · 故宫 · 景山 <b>经典中轴</b><br>D2 八达岭长城一日 <b>已配往返交通</b><br>D3 颐和园 · 圆明园 · 什刹海 <b>慢节奏</b><br><span style="color:#4f8f6b">已匹配 12 个可订资源 · 3 家酒店</span>', chips:['带老人去怎么安排？','只有两天呢？','帮我把酒店订了'] },
+            ask:{ q:'带老人去怎么安排？', a:'长城台阶多，带老人<b>建议换掉</b>：<br>· 改颐和园 + 圆明园，园内可坐船与电瓶车<br>· 每天 2 个点以内，中午留 1.5 小时休息<br>· 住宿换到<b>前门 / 王府井</b>一带，少换乘', chips:['只有两天呢？','住哪个区方便？','帮我订酒店'] } },
+  },
+
+  bjq: {
+    label:'目的地 · 北京好玩的景点', sub:'问题 query → AI 卡置顶', kind:'dest', q:'北京好玩的景点', topic:'北京', aiFirst:true,
+    name:'以后 · 北京好玩的景点（问题 query）', desc:'按 §3.2：问题 query → AI 卡置顶（回答"有什么好玩的"）；feed 也按意图调结构 —— 景点类前置集中，酒店、接送机往后挪。',
+    nowDesc:'问的是"有什么好玩的"，现在页面只给榜单和 feed，没有人替你总结；feed 也不看意图，景点、酒店、门票、一日游均匀混排。',
+    ctx:'query=北京好玩的景点 ｜ 意图=目的地 ｜ tab=综合 ｜ 卡片条件=推荐清单',
+    ptitle:'北京', pchips:['住酒店','逛景点','火车票','机票','民宿'],
+    boards:[{ title:'景点精选榜', rows:[['warm','北京环球度假区','大片世界 在此成真'],['cool','泡泡玛特城市乐园','人气精灵 labubu'],['land','北京国际鲜花港','入目皆花影 蝶自来']] },
+            { title:'热门区域', rows:[['cool','天安门广场','56% 用户选择'],['warm','北京环球度假区','11% 用户选择'],['land','北京朝阳站','10% 用户选择']] }],
+    ai:{ title:'北京好玩的景点', tag:'AI 整理',
+         ans:'按「第一次来 + 4 天」排：<b>故宫 + 天安门</b>、<b>八达岭长城</b>、<b>环球影城</b> 三个必去。',
+         more:'<br>· 故宫需<b>提前 7 天</b>预约，周一闭馆<br>· 八达岭长城一天来回，建议 7:00 早班车<br>· 环球影城工作日人少一半，亲子首选<br>· 想放松半天：颐和园 / 什刹海',
+         imgs:['land','warm'],
+         rel:[['warm','故宫博物院 · 门票','需提前预约','¥60'],
+              ['land','八达岭长城一日游 · 含往返','2.1万人已订','¥168']] },
+    banner:'AI 行程规划 · 北京 4 天 3 晚',
+    mapTitle:'地图看北京', mapMeta:'景点 128 · 酒店 233 · 交通 46',
+    asks:['故宫几点人少','长城怎么去最省事','带娃住哪个区','北京 4 天够玩吗','环球影城怎么去','北京南站附近住哪'],
+    /* 现在：资源均匀混排（不看 query 意图） */
+    feedNow:[['land','北京环球度假区','4.6分 · 1.2万点评 · 主题乐园','¥528 起'],
+             ['hotel','北京朝阳门附近高分酒店','4.8分 · 6735点评 · 高档型','¥688 起'],
+             ['warm','故宫博物院 · 门票','4.8分 · 18.2万点评','¥60 起'],
+             ['land','八达岭长城一日游 · 含往返','4.7分 · 2.1万人已订','¥168 起'],
+             ['cool','北京 4 天 3 晚 · 16 人小团','4.8分 · 583人已出游','¥2190 起'],
+             ['warm','什刹海胡同游 · 三轮车','4.6分 · 1280人已订','¥120 起'],
+             ['hotel','北京南锣鼓巷附近酒店','4.6分 · 步行 5 分钟','¥356 起'],
+             ['cool','北京 · 天坛公园 · 门票','4.7分 · 需预约','¥34 起'],
+             ['cool','北京 · 接送机服务','含高速费 · 24 小时','¥128 起'],
+             ['warm','环球影城 · 快速通行','4.9分 · 当日可订','¥399 起']],
+    /* 以后：同一批资源，景点类前置集中，酒店 / 接送机后移 */
+    feed:[['warm','故宫博物院 · 门票','4.8分 · 18.2万点评','¥60 起'],
+          ['land','八达岭长城一日游 · 含往返','4.7分 · 2.1万人已订','¥168 起'],
+          ['land','北京环球度假区','4.6分 · 1.2万点评 · 主题乐园','¥528 起'],
+          ['cool','北京 · 天坛公园 · 门票','4.7分 · 需预约','¥34 起'],
+          ['warm','什刹海胡同游 · 三轮车','4.6分 · 1280人已订','¥120 起'],
+          ['warm','环球影城 · 快速通行','4.9分 · 当日可订','¥399 起'],
+          ['cool','北京 4 天 3 晚 · 16 人小团','4.8分 · 583人已出游','¥2190 起'],
+          ['hotel','北京朝阳门附近高分酒店','4.8分 · 6735点评 · 高档型','¥688 起'],
+          ['hotel','北京南锣鼓巷附近酒店','4.6分 · 步行 5 分钟','¥356 起'],
+          ['cool','北京 · 接送机服务','含高速费 · 24 小时','¥128 起']],
+    routes:[['北京 4 天 3 晚 · 经典中轴','D1 天安门 · 故宫 · 景山<br>D2 八达岭长城<br>D3 颐和园 · 什刹海','已匹配 12 个可订资源'],
+            ['北京 3 天 2 晚 · 亲子','D1 环球影城 · 亲子慢线<br>D2 动物园 · 海洋馆<br>D3 科技馆 · 奥林匹克公园','已匹配 9 个可订资源']],
+    plan:{ name:'北京 4 天 3 晚 · 经典中轴', day:'D1', line:'天安门 · 故宫 · 景山', hint:'经典中轴',
+           meta:'已匹配 12 个可订资源 · 3 家酒店',
+           res:[['land','北京环球度假区','4.6分 · 1.2万点评','¥528'],['hotel','北京朝阳门附近高分酒店','4.8分 · 6735点评','¥688']] },
+    convo:{ entry:{ q:'北京好玩的景点', a:'按「第一次来 + 4 天」排：<br>· <b>故宫 + 天安门</b>：经典必去，需提前 7 天预约<br>· <b>八达岭长城</b>：一天来回，建议早班车<br>· <b>环球影城</b>：亲子首选，工作日人少一半', chips:['带老人去怎么安排？','只有两天呢？','住哪个区方便？'] },
+            ask:{ q:'带老人去怎么安排？', a:'长城台阶多，带老人<b>建议换掉</b>：<br>· 改颐和园 + 圆明园，园内可坐船与电瓶车<br>· 每天 2 个点以内，中午留 1.5 小时休息<br>· 住宿换到<b>前门 / 王府井</b>一带，少换乘', chips:['只有两天呢？','住哪个区方便？','帮我订酒店'] } },
+  },
+};
+
+/* ================= 场景数据（续） ================= */
+SC.poi = {
+  label:'POI · 百子湾地铁站', sub:'地点 query → 名称 + 周边', kind:'poi', q:'百子湾地铁站', topic:'百子湾',
+  name:'以后 · 百子湾地铁站落地页', desc:'POI 骨架最薄：名称 + 一行地址 + 周边入口；AI 解读卡与地图模块补在下面。',
+  nowDesc:'只有名称、一行地址和 3 个周边入口，AI 与地图都不在页面上。',
+  ctx:'query=百子湾地铁站 ｜ 意图=POI ｜ tab=综合 ｜ 卡片条件=步行 500m',
+  poi:{ name:'百子湾地铁站', addr:'北京市朝阳区地铁7号线' },
+  chips:['附近酒店','附近民宿','附近景点'],
+  ai:{ title:'周边怎么住', tag:'AI 解读', ans:'· 步行 500m 内 <b>3 家经济型</b>，均价 ¥220<br>· 地铁 7 号线 1 站到<b>国贸</b>，换乘去市区最顺<br>· 22:00 后到店建议选<b>临街店</b>，进出方便' },
+  mapTitle:'地图看周边', mapMeta:'酒店 12 · 景点 6 · 地铁 2',
+  asks:['附近停车方便吗','去国贸几站','周边有什么吃的','晚上安全吗','附近酒店多少钱','地铁几点停运'],
+  feed:[['hotel','百子湾附近经济型酒店','4.5分 · 步行 8 分钟','¥216 起'],['land','北京欢乐谷 · 门票','4.6分 · 地铁 6 站','¥299 起'],
+        ['hotel','国贸附近酒店','4.7分 · 地铁 3 站','¥412 起'],['warm','北京 1 日游 · 故宫 + 什刹海','4.8分 · 含往返','¥298 起'],
+        ['hotel','双井附近酒店','4.6分 · 地铁 2 站','¥336 起'],['cool','北京 · 酒景套餐 2 天 1 晚','含欢乐谷门票 + 酒店','¥698 起']],
+  routes:[['百子湾半日 · 周边','D1 国贸 · 百子湾','已匹配 5 个可订资源']],
+  plan:{ name:'百子湾周边 · 半日', day:'D1', line:'国贸 · 百子湾', hint:'半日',
+         meta:'已匹配 5 个可订资源',
+         res:[['hotel','百子湾附近经济型酒店','4.5分 · 步行 8 分钟','¥216'],['land','北京欢乐谷 · 门票','4.6分 · 地铁 6 站','¥299']] },
+  convo:{ entry:{ q:'周边怎么住', a:'· 步行 500m 内 <b>3 家经济型</b>，均价 ¥220<br>· 地铁 7 号线 1 站到<b>国贸</b>，换乘去市区最顺<br>· 22:00 后到店建议选<b>临街店</b>，进出方便', chips:['附近停车方便吗？','去国贸几站？','周边有什么吃的？'] },
+          ask:{ q:'附近停车方便吗？', a:'地铁站周边<b>路侧车位紧张</b>，建议：<br>· 停<b>合生汇地下停车场</b>（步行 6 分钟）<br>· 晚 20:00 后路边可临时停', chips:['去国贸几站？','周边有什么吃的？','附近酒店多少钱？'] } },
+};
+
+SC.sta = {
+  label:'场站 · 南京禄口机场', sub:'含「已订票」开关', kind:'station', q:'南京禄口机场', topic:'禄口机场',
+  name:'以后 · 南京禄口机场落地页', desc:'6 宫格与交通方案全部保留；上面按「是否已订票」条件加一张行程服务卡，AI 解读与地图在下面。',
+  nowDesc:'一套「6 宫格 + 交通方案」的服务入口，值机选座在落地页没有落点。',
+  ctx:'query=南京禄口机场 ｜ 意图=场站 ｜ tab=综合 ｜ 卡片条件=已订票（可切换）',
+  ptitle:'南京禄口机场', pchips:[],
+  svc:{ title:'MU2831 · 今天 15:40 起飞', tag:'已订票可见', rows:['在线值机','选座 32A','航班动态'] },
+  grid:['订机票','附近酒店','附近民宿','机场大巴','打车','逛景点'],
+  trans:[['苏州 → 禄口机场','高铁 + 地铁 ¥148 起'],['禄口机场 → 苏州','机场大巴 ¥128 起']],
+  ai:{ title:'提前多久到机场', tag:'AI 解读', ans:'· 值机岛 A-D，<b>建议提前 90 分钟</b>到<br>· 地铁 S1 机场线 30 分钟到<b>南京南站</b><br>· 行李超 20kg 需先去<b>超规行李柜台</b>' },
+  mapTitle:'地图看航站楼', mapMeta:'T1 · T2 · 登机口 A–D · 值机岛 4',
+  asks:['转机要留多久','提前多久到机场','值机几点截止','哪里能充电','行李寄存多少钱','到南京南站多久'],
+  feed:[['hotel','禄口机场周边酒店','4.6分 · 含接送机','¥238 起'],['land','南京 · 总统府 · 门票','4.7分 · 需预约','¥35 起'],
+        ['land','南京 2 天 1 晚','4.8分 · 583人已出游','¥680 起'],['cool','南京 · 接送机服务','含高速费 · 24 小时','¥98 起'],
+        ['hotel','江宁区附近酒店','4.6分 · 含接送机','¥218 起'],['land','南京 · 地铁 S1 沿线酒店','4.5分 · 出行方便','¥196 起']],
+  routes:[['南京 2 天 1 晚 · 机场进出','D1 抵达 · 夫子庙<br>D2 中山陵 · 返程','已匹配 7 个可订资源']],
+  plan:{ name:'南京 2 天 1 晚 · 机场进出', day:'D1', line:'抵达 · 夫子庙', hint:'含接送',
+         meta:'已匹配 7 个可订资源 · 1 家酒店',
+         res:[['hotel','禄口机场周边酒店','4.6分 · 含接送机','¥238'],['land','南京 · 总统府 · 门票','4.7分 · 需预约','¥35']] },
+  convo:{ entry:{ q:'提前多久到机场', a:'· 值机岛 A-D，<b>建议提前 90 分钟</b>到<br>· 地铁 S1 机场线 30 分钟到<b>南京南站</b><br>· 行李超 20kg 需先去<b>超规行李柜台</b>', chips:['转机要留多久？','值机几点截止？','哪里能充电？'] },
+          ask:{ q:'转机要留多久？', a:'同一航站楼转机：<b>至少 60 分钟</b>；<br>· 跨航站楼（T1↔T2）建议 <b>90 分钟以上</b><br>· 需要重新过安检的联程，留 <b>2 小时</b>更稳', chips:['值机几点截止？','哪里能充电？','行李寄存多少钱？'] } },
+  /* 未订票：同一张 AI 卡换成"飞到哪便宜"，问题与追问都跟着换 */
+  alt:{ desc:'6 宫格与交通方案全部保留；未订票时不出现行程服务卡，AI 卡换成「南京出发，飞到哪便宜」——给的是航线灵感（不是高铁），再往下才是资源。',
+        ctx:'query=南京禄口机场 ｜ 意图=场站 ｜ tab=综合 ｜ 卡片条件=未订票 → AI 卡给低价航线推荐',
+        ai:{ title:'南京出发，飞到哪便宜', tag:'AI 推荐',
+             ans:'按近期票价排：<br>· <b>厦门</b> 直飞约 1.5 小时，周末 2 天刚好<br>· <b>西安</b> 直飞约 2 小时，3 天最舒服<br>· <b>重庆</b> 直飞约 2 小时，吃住都便宜<br><span style="color:#7d8a83">价格按出发日实时查，点开看当天票价</span>' },
+        asks:['南京出发飞到哪便宜','周末 2 天飞的去哪','机票提前多久买便宜','南京直飞能到哪些城市','500 块能飞到哪','下个月哪条航线便宜'],
+        routes:[['南京出发 · 周末 2 天','厦门 · 西安 · 青岛<br>直飞 1.5–2 小时','已整理 6 条航线'],
+                ['南京出发 · 长线 3-4 天','三亚 · 成都 · 昆明<br>直飞 2–3 小时','已整理 8 条航线']],
+        plan:{ name:'南京出发 · 周末飞西安', day:'D1', line:'西安 · 城墙 · 大唐不夜城', hint:'直飞 2 小时', btnLabel:'查看完整行程',
+               meta:'已匹配 5 个可订资源 · 1 家酒店',
+               res:[['cool','南京 → 西安 机票','直飞 · 当日可订','¥390'],['hotel','西安钟楼附近酒店','4.7分 · 步行 6 分钟','¥268']] },
+        convo:{ entry:{ q:'南京出发，飞到哪便宜', a:'按近期票价排：<br>· <b>厦门</b>：直飞约 1.5 小时<br>· <b>西安</b>：直飞约 2 小时<br>· <b>重庆</b>：直飞约 2 小时<br>周末 2 天先看厦门 / 西安', chips:['周末 2 天飞的去哪？','机票提前多久买便宜？','南京直飞能到哪些城市？'] },
+                ask:{ q:'周末 2 天飞的去哪？', a:'两天优先挑<b>直飞 2 小时内</b>的：<br>· <b>厦门</b>：海边 + 鼓浪屿，节奏慢<br>· <b>西安</b>：城墙 + 不夜城，夜里最热闹<br>· <b>青岛</b>：老城区 + 海边，适合闲逛', chips:['机票提前多久买便宜？','500 块能飞到哪？','下个月哪条航线便宜？'] } } },
+};
+
+SC.hot = {
+  label:'酒店 · 里白酒店', sub:'品牌词 query', kind:'hotel', q:'里白酒店', topic:'里白酒店', aiFirst:true,
+  name:'以后 · 里白酒店落地页', desc:'酒店没有「一个主要实体」需要前置，所以 AI 卡在前；下面是单列榜单式列表（不走综合 feed），前 3 家带 AI 推荐理由。',
+  nowDesc:'没有头部详情卡，直接进单列榜单式列表（不走综合 feed），列表里也没有任何 AI 信息：8 家酒店只有评分、设施和价格。',
+  ctx:'query=里白酒店 ｜ 意图=酒店 ｜ tab=综合 ｜ 卡片条件=品牌词，8 家在售',
+  ai:{ title:'为你找到 8 家里白酒店', tag:'AI 整理',
+       ans:'南京 <b>3 家</b> · 重庆 <b>5 家</b>，评分 <b>4.5–4.9</b>，¥196 起，都带停车场。',
+       more:'<br>· 离秦淮河最近：夫子庙店 <b>600m</b>，步行 8 分钟<br>· 口碑最高：重庆南坪万达广场店 4.9 分 / 701 条点评<br>· 今晚有房：夫子庙店 3 间，¥238 起' },
+  hotels:[['里白酒店(南京夫子庙秦淮风光带店)','4.8','39点评','三星级','南京·秦淮区','停车场 机器人服务 行李寄存','¥238'],
+          ['里白酒店(重庆南坪万达广场店)','4.9','701点评','三星级','重庆·南岸区','停车场 公共区wifi 行李寄存','¥196'],
+          ['里白酒店(南京新街口店)','4.7','39点评','三星级','南京·秦淮区','停车场 行李寄存','¥256'],
+          ['里白酒店(重庆解放碑店)','4.6','128点评','三星级','重庆·渝中区','停车场 公共区wifi','¥212'],
+          ['里白酒店(南京南站店)','4.8','76点评','三星级','南京·雨花台区','停车场 行李寄存','¥229'],
+          ['里白酒店(重庆观音桥店)','4.7','210点评','三星级','重庆·江北区','机器人服务 行李寄存','¥205'],
+          ['里白酒店(南京玄武湖店)','4.8','88点评','三星级','南京·玄武区','含早 免费停车','¥272'],
+          ['里白酒店(南京禄口机场店)','4.6','41点评','三星级','南京·江宁区','接送机 行李寄存','¥238']],
+  /* feed 前 3 位给 AI 推荐理由（只有"以后"有） */
+  reasons:['距夫子庙 600m、步行 8 分钟到秦淮河，免费停车 —— 8 家里离景区最近',
+           '评分 4.9、701 条点评，品牌里口碑最高；¥196 也是这 8 家里最低',
+           '新街口地铁 1 / 2 号线换乘，晚上逛街吃饭方便，含免费停车'],
+  asks:['这家能停车吗','离秦淮河多远','有没有双床房','几点能入住','含早餐吗','能开发票吗'],
+  feed:[],
+  routes:[['南京 2 天 1 晚 · 住夫子庙','D1 夫子庙 · 秦淮河<br>D2 老门东 · 返程','已匹配 6 个可订资源']],
+  plan:{ name:'南京 2 天 1 晚 · 住夫子庙', day:'D1', line:'夫子庙 · 秦淮河', hint:'步行 8 分钟',
+         meta:'已匹配 6 个可订资源 · 1 家酒店',
+         res:[['hotel','里白酒店(南京夫子庙秦淮风光带店)','4.8分 · 今晚有房','¥238']] },
+  convo:{ entry:{ q:'里白酒店', a:'为你找到 <b>8 家</b>里白酒店<br>· 南京 <b>3 家</b> · 重庆 <b>5 家</b><br>· 评分 <b>4.5–4.9</b>，¥196 起，都带停车场<br>· 最近一家距秦淮河 <b>600m</b>，步行 8 分钟', chips:['这家能停车吗？','离秦淮河多远？','有没有双床房？'] },
+          ask:{ q:'这家能停车吗？', a:'里白酒店<b>多数门店都有停车场</b>：<br>· 夫子庙店：免费停车 + 机器人服务<br>· 南坪万达店：免费停车<br>· 少数老店只提供<b>周边临时车位</b>，订前看门店详情', chips:['离秦淮河多远？','有没有双床房？','含早餐吗？'] } },
+};
+
+SC.ask = {
+  label:'问题型 · 出门玩要带什么东西', sub:'要一个说法', kind:'question', q:'出门玩要带什么东西', topic:'出行清单', aiFirst:true,
+  name:'以后 · 出门玩要带什么东西（问题型）', desc:'要一个说法：AI 答案卡前置，答案下方从「资源召回」换成「内容召回」——同 query 优先召回攻略 / 清单，而不是词面命中的资源。',
+  nowDesc:'AI 答案是对的，但下面的推荐是拿 query 切出来的「东西」去命中的：召回了桂林「东西巷」、西宁「海东西站」附近的酒店，还有海东 → 苏州 的交通方案。',
+  ctx:'query=出门玩要带什么东西 ｜ 意图=问题型（知识问答） ｜ tab=综合',
+  ai:{ title:'出门玩要带什么东西', tag:'AI 搜索',
+       ans:'核心是 <b>「刚需为主、轻装出行」</b>，按证件、衣物、日用、应急四类打包就够。',
+       more:'<br>· 证件：身份证、优惠证件、少量现金<br>· 衣物：按天数 + 防晒衣 / 薄外套<br>· 日用：洗漱分装、充电宝、防晒<br>· 应急：常用药、创可贴、密封袋',
+       imgs:['cool','warm'] },
+  asks:['短途 2 天要带多少','带娃要额外带什么','哪些东西不能上飞机','夏天去海边带什么','洗漱品要自己带吗','清单能存下来吗'],
+  trans:[['海东 → 苏州','¥826 起'],['丹东 → 苏州','¥826 起'],['苏州 → 海东','¥826 起']],
+  feedNow:[['land','东西巷','4.4分 · 桂林 · 历史街区'],
+           ['hotel','环球国际酒店(桂林两江四湖象鼻山店)','高档型 · 东西巷附近','¥201 起'],
+           ['hotel','那朵酒店(西宁机场海东西站店)','经济型 · 海东西站附近','¥140 起'],
+           ['warm','桂林出发 3 日游 · 漓江阳朔','4 轮 · 含接送','¥949 起'],
+           ['hotel','希尔曼智能酒店(桂林两江四湖东西巷店)','经济型 · 东西巷附近','¥99 起'],
+           ['cool','桂林出发 3 日游 · 阳朔 + 象鼻山','4 轮 · 含接送','¥849 起'],
+           ['hotel','海东云熙酒店(西宁机场海东西站店)','经济型 · 海东西站附近','¥140 起']],
+  notes:[['pack','极简行李｜东南亚 13 天廉航背包清单','DennisYY','出行好物','124'],
+         ['paper','超全版！J人旅行必备清单，照着收就行','YOYO旅行日记','清单模板','50'],
+         ['suit','长假出门前，照着这份清单收行李','曼妮的旅行笔记','国内游 · 长途','97'],
+         ['city','出游必备｜来了三亚才知道，带的东西都有用','小努在路上','海岛','1809'],
+         ['pack cool','带娃出门 3 天，行李压到一个背包','亲子出行记','亲子','632'],
+         ['paper cool','机场安检会被扣的东西，一次说清','飞行小助手','安检','1.2万']],
+  routes:[['出行必备清单','充电宝 · 防晒霜 · 常用药<br>转换插头 · 保温杯 · 雨伞','已整理 12 项'],
+          ['带娃出行清单','奶粉 · 餐具 · 退烧药<br>推车 · 备用衣物','已按年龄整理']],
+  plan:{ name:'出行必备清单', day:'通用版', line:'证件 · 衣物 · 日用 · 应急', hint:'12 项', btnLabel:'查看完整清单',
+         meta:'已按目的地整理 · 可存进我的行程',
+         resLabel:'相关攻略',
+         resNotes:[['pack','极简行李｜东南亚 13 天廉航背包清单','DennisYY','124'],
+                   ['suit','长假出门前，照着这份清单收行李','曼妮的旅行笔记','97']] },
+  convo:{ entry:{ q:'出门玩要带什么东西', a:'出门玩的物品准备，核心是 <b>「刚需为主、轻装出行」</b>。<br>· <b>证件</b>：身份证、优惠证件、少量现金<br>· <b>衣物</b>：按天数 + 防晒衣 / 薄外套<br>· <b>日用</b>：洗漱分装、充电宝、防晒<br>· <b>应急</b>：常用药、创可贴、密封袋', chips:['短途 2 天要带多少？','带娃要额外带什么？','哪些东西不能上飞机？'] },
+          ask:{ q:'短途 2 天要带多少？', a:'2 天 1 晚 <b>一个背包就够</b>：<br>· 衣服 <b>2 套</b>，其中 1 套可混搭穿回程<br>· 洗漱带<b>分装</b>，不用带整瓶<br>· 充电宝、雨伞、常用药各 1 件', chips:['带娃要额外带什么？','哪些东西不能上飞机？','夏天去海边带什么？'] } },
+};
+
+/* ================= 各 kind 的落地页渲染 ================= */
+let HAS_TICKET = true;   /* 场站场景的「已订票」开关 */
+
+/* 场站：按「已订票」切换 AI 卡那一套（问题 / 追问 / 行程 / 上下文说明都跟着换） */
+const STA_KEYS = ['desc', 'ctx', 'ai', 'asks', 'routes', 'plan', 'convo'];
+const STA_BASE = {};
+STA_KEYS.forEach(k => { STA_BASE[k] = SC.sta[k]; });
+function applySta() {
+  const c = SC.sta, v = HAS_TICKET ? STA_BASE : c.alt;
+  STA_KEYS.forEach(k => { c[k] = v[k]; });
+}
+
+
+const hotelRows = (rows, reasons) => rows.map((r, i) =>
+  '<div class="prow hot" data-go="S6" data-say="点「' + r[0] + '」"><div class="thumb hotel" style="height:60px"></div>'
+  + '<div class="li"><div class="a">' + r[0] + '</div>'
+  + '<div class="c"><span class="score">' + r[1] + '</span>' + r[2] + '<span class="star">' + r[3] + '</span></div>'
+  + '<div class="b">' + r[4] + '</div><div class="b">' + r[5] + '</div>'
+  + (reasons && reasons[i] ? '<div class="aireason"><b>AI 推荐理由</b><span>' + reasons[i] + '</span></div>' : '')
+  + '</div>'
+  + '<div class="pr">' + r[6] + '<small style="font-size:10px">起</small></div></div>').join('');
+
+const grids = (items) => '<div class="pgrid">' + items.map(x =>
+  '<span class="pchip hot" data-go="S6" data-say="点「' + x + '」">' + x + '</span>').join('') + '</div>';
+
+const transCards = (rows) => '<div class="pcards">' + rows.map(r =>
+  '<div class="pcard hot" data-go="S6" data-say="点「' + r[0] + '」" style="border-color:#eef1ef;background:#fff">'
+  + '<div class="t" style="color:#333">' + r[0] + '</div><div class="r">' + r[1] + '</div></div>').join('') + '</div>';
+
+const poiHead = (id) => {
+  const p = SC[id].poi;
+  return '<div class="ppoi"><div class="n">' + p.name + '</div><div class="m">📍 ' + p.addr + '</div></div>';
+};
+const chipsRow = (items) => '<div class="pchips">' + items.map(x =>
+  '<span class="pchip hot" data-go="S6" data-say="点「' + x + '」">' + x + '</span>').join('') + '</div>';
+
+function landing(id, isNow) {
+  const c = SC[id];
+  let h = '<div class="screen">' + topSearch(c.q, !isNow) + '<div class="content"><div class="body">';
+  const AI = (nowBtn) => aicardHTML(id, nowBtn && c.ai.tag === 'AI 搜索' ? '查看完整回答 ›' : (c.ai.btn || null), isNow);
+
+  if (c.kind === 'scenic') {
+    /* 线上已有 AI 回复的场景（zzq）：现在 / 以后 都出这张卡 */
+    if (c.aiFirst) h += AI();
+    h += ppoiCard(id);
+    if (!isNow && !c.aiFirst) h += '<div style="margin-top:15px">' + AI() + '</div>';
+    if (!isNow) h += askboard(c);
+    h += PLABEL('大家怎么玩', '长 feed') + feed2((isNow && c.feedNow) ? c.feedNow : c.feed);
+
+  } else if (c.kind === 'dest') {
+    if (!isNow && c.aiFirst) h += AI() + '<div style="height:4px"></div>';
+    h += '<div class="ptitle">' + c.ptitle + '<span>旅行服务</span></div>'
+      + chipsRow(c.pchips) + PLABEL('精选热榜') + boards(id);
+    if (isNow) {
+      h += '<div class="pbanner"><div class="t">' + c.banner + '</div><div class="d">吃住行玩都排好 · 查看完整行程 ›</div></div>';
+    } else {
+      if (!c.aiFirst) h += '<div style="margin-top:15px">' + AI() + '</div>';
+      h += mapCard(c.mapTitle, c.mapMeta) + askboard(c);
+    }
+    h += PLABEL('大家怎么玩', '长 feed') + feed2((isNow && c.feedNow) ? c.feedNow : c.feed);
+
+  } else if (c.kind === 'poi') {
+    h += poiHead(id);
+    if (!isNow) h += '<div style="margin-top:14px">' + AI() + '</div>' + mapCard(c.mapTitle, c.mapMeta);
+    h += chipsRow(c.chips);
+    if (!isNow) h += askboard(c);
+    h += PLABEL('大家怎么玩', '长 feed') + feed2(c.feed);
+
+  } else if (c.kind === 'station') {
+    h += '<div class="ptitle">' + c.ptitle + '<span>旅行服务</span></div>';
+    if (!isNow && HAS_TICKET) {
+      h += '<div class="svc"><div class="h">' + c.svc.title + '<span class="tag">' + c.svc.tag + '</span></div>'
+        + '<div class="rows">' + c.svc.rows.map(r => '<div class="b hot" data-go="S6" data-say="点「' + r + '」">' + r + '</div>').join('') + '</div></div>';
+    }
+    h += grids(c.grid) + PLABEL('交通方案推荐') + transCards(c.trans);
+    if (!isNow) h += '<div style="margin-top:15px">' + AI() + '</div>' + mapCard(c.mapTitle, c.mapMeta) + askboard(c);
+    h += PLABEL('相关推荐', '长 feed') + feed2(c.feed);
+
+  } else if (c.kind === 'hotel') {
+    if (isNow) {
+      h += '<div class="pnote">没有头部详情卡，直接进列表（单列榜单式，不走综合 feed）</div>';
+    } else {
+      h += AI();
+    }
+    h += hotelRows(c.hotels, isNow ? null : c.reasons);
+    if (!isNow) h += askboard(c);
+
+  } else if (c.kind === 'question') {
+    /* 问题型：AI 答案两边一致，差别全在推荐区「召回了什么」 */
+    h += AI(true);
+    if (isNow) {
+      h += PLABEL('相关推荐', '长 feed') + recTrans(c.trans) + feed2(c.feedNow);
+    } else {
+      h += askboard(c);
+      h += PLABEL('相关推荐') + notes2(c.notes);
+    }
+  }
+  h += '</div></div></div>';
+  if (!isNow) h += capsule();
+  return h;
+}
+
+/* ================= AI 承接页（三个进入状态 + 出页） ================= */
+function aiEmpty(id) {
+  const c = SC[id];
+  let h = '<div class="screen">' + topAI(c.q, 'LAND:' + id) + '<div class="content"><div class="chat">'
+    + '<div class="airow"><div class="ava">🤖</div><div class="nm">AI 搜索</div></div>'
+    + '<div class="chatans">想问' + c.topic + '什么？门票、怎么玩、周边吃住都能问。</div>';
+  if (c.routes && c.routes.length) {
+    h += '<div class="seclabel">为你准备的路线</div><div class="planrow">' + c.routes.map(planCard).join('') + '</div>';
+  }
+  h += '<div class="seclabel">大家都在问</div><div class="qlist">'
+    + c.asks.slice(0, 3).map(q => '<i class="hot" data-s2="ask" data-q="' + q + '" data-say="点预设问题「' + q + '」">' + q + '</i>').join('')
+    + '</div></div></div></div>' + inputbar;
+  return h;
+}
+
+function aiChat(id) {
+  const c = SC[id], d = c.convo[convoKey];
+  let h = '<div class="screen">' + topAI(c.q, 'LAND:' + id) + '<div class="content"><div class="chat">';
+  convo.forEach(function (r, idx) {
+    h += '<div class="round' + (idx === convo.length - 1 && window.__popLast ? ' anim-pop' : '') + '">'
+      + '<div class="bubble-user">' + r.q + '</div>'
+      + '<div class="airow"><div class="ava">🤖</div><div class="nm">AI 搜索</div></div>'
+      + '<div class="chatans">' + r.a + '</div>';
+    if (r.res) h += prows(r.res);
+    if (r.resNotes) h += noteRows(r.resNotes);
+    h += '</div>';
+  });
+  h += '<div class="seclabel">继续问</div><div class="qlist">'
+    + convoChips.map(q => '<i class="hot" data-ask="' + q + '">' + q + '</i>').join('') + '</div></div></div></div>' + inputbar;
+  return h;
+}
+
+function aiPlan(id) {
+  const c = SC[id], p = c.plan;
+  return '<div class="screen">' + topAI(p.name, 'LAND:' + id) + '<div class="content"><div class="outpage">'
+    + '<div class="aicard" style="margin:0"><div class="h"><div class="ava">🤖</div><div class="tt">' + p.name + '</div><div class="tag">AI 生成</div></div>'
+    + '<div class="dline"><span class="day">' + p.day + '</span><span>' + p.line + '</span><span class="hint">' + p.hint + '</span></div>'
+    + '<div class="meta">' + p.meta + '</div>'
+    + '<div class="btn hot" data-go="S6" data-say="点「' + (p.btnLabel || '查看完整行程') + '」">' + (p.btnLabel || '查看完整行程') + ' ›</div></div>'
+    + '<div class="plabel">' + (p.resLabel || '行程里的可订资源') + '</div>'
+    + (p.resNotes ? noteRows(p.resNotes) : prows(p.res))
+    + '</div></div></div>' + inputbar;
+}
+
+function product(id) {
+  const c = SC[id];
+  return '<div class="screen">' + topAI('商品详情', 'LAND:' + id) + '<div class="content"><div class="outpage"><div class="outcard">'
+    + '<div class="thumb big warm"></div><h3>' + c.card.name + ' · 门票</h3>'
+    + '<div class="sub">免排队入园 · 需实名 · 选日期后出票</div>'
+    + '<div class="price">' + c.card.price + ' <span style="font-size:14px">起</span></div>'
+    + '<div class="buy hot" data-go="LAND:' + id + '" data-say="返回来源状态">立即预订</div></div></div></div></div>';
+}
+
+function mapPage(id) {
+  const c = SC[id];
+  return '<div class="screen">' + topAI(c.mapTitle, 'LAND:' + id) + '<div class="content"><div class="outpage">'
+    + '<div class="outcard" style="padding:0;overflow:hidden"><div style="height:560px;background:#eaf1ee;position:relative">'
+    + '<svg viewBox="0 0 350 560" style="width:100%;height:100%">'
+    + '<rect width="350" height="560" fill="#eaf1ee"/>'
+    + '<path d="M-20 430C90 400 200 330 380 300" stroke="#fff" stroke-width="14" fill="none"/>'
+    + '<path d="M120-20C150 160 190 360 220 580" stroke="#f7dca1" stroke-width="11" fill="none"/>'
+    + '<circle cx="176" cy="300" r="16" fill="#f5821f"/><circle cx="176" cy="300" r="6" fill="#fff"/>'
+    + '<circle cx="120" cy="380" r="12" fill="#2f6ef2"/><circle cx="240" cy="250" r="12" fill="#12a35f"/>'
+    + '<text x="196" y="306" font-size="13" fill="#4a5a53">' + c.poi ? c.poi.name : c.topic + '</text>'
+    + '</svg></div></div></div></div></div>';
+}
+
+/* 攻略内容页：清单型 / 内容型 query 的正文落点 */
+function notePage(id) {
+  return '<div class="screen">' + topAI(curNote || '攻略详情', 'LAND:' + id) + '<div class="content"><div class="outpage">'
+    + '<div class="outcard" style="padding:0;overflow:hidden">'
+    + '<div class="cover ' + (curNoteCover || 'pack') + '" style="position:relative;overflow:hidden;height:206px;border-radius:0"></div>'
+    + '<div style="padding:16px">'
+    + '<h3 style="margin-top:0">' + (curNote || '攻略') + '</h3>'
+    + '<div class="sub">' + (curNoteAuthor ? curNoteAuthor + ' · 攻略' : '攻略') + (curNoteLike ? ' · ♡ ' + curNoteLike : '') + '</div>'
+    + '<div class="sub" style="color:#3c4a44;font-size:13.5px;line-height:1.78;margin-top:12px">'
+    + '· 核心原则：<b>刚需为主、轻装出行</b>，别按"万一用得上"带<br>'
+    + '· 按「证件 / 衣物 / 日用 / 应急」四类打包，按天数增减<br>'
+    + '· 液体一律<b>分装 + 密封袋</b>，充电宝随身不托运<br>'
+    + '· 出门前 10 分钟照着清单过一遍，证件和药最后确认'
+    + '</div>'
+    + '<div class="buy hot" data-go="LAND:' + id + '" data-say="返回来源状态">返回落地页</div>'
+    + '</div></div></div></div></div>';
+}
+
+/* ================= 通用状态 ================= */
+const S = {
+  S1: { html: () => aiEmpty(scene.id) },
+  S2: { html: () => aiChat(scene.id) },
+  S3: { html: () => aiPlan(scene.id) },
+  S6: { html: () => product(scene.id) },
+  S7: { html: () => mapPage(scene.id) },
+  S9: { html: () => notePage(scene.id) },
+  EXIT: { html: () => '<div class="screen" style="padding:0">' + topSearch(SC[scene.id].q, true) + '<div class="content"><div class="body">'
+    + '<div class="muted" style="padding:40px 0;text-align:center;font-size:15px;line-height:1.9">⚠️ 已退出落地页<br>（返回行为 A：直接退出）<br><br>'
+    + '<span class="hot" data-go="LAND:' + scene.id + '" data-say="点「重新进入落地页」" style="display:inline-block;border:1px solid #12a35f;color:#0a8a52;border-radius:12px;padding:10px 20px;font-weight:800;cursor:pointer">重新进入落地页</span>'
+    + '</div></div></div></div>' + capsule() },
+};
+
+const AI_MEM = ['S1', 'S2', 'S3'];
+const AI_STATES = ['S1', 'S2', 'S3', 'S6', 'S7', 'EXIT'];
+
+const S_META = {
+  S1: { name:'AI 承接页 · 空态（点 tab / 问一问 进来）', desc:'不替用户提问：给引导 + 预生成路线 + 预设问题；上下文照带但界面不显示。' },
+  S2: { name:'AI 对话', desc:'三种进入方式落到同一个对话容器；追问在同一页累积；可订资源挂在 AI 回复下方。' },
+  S3: { name:'AI 承接页 · 行程视图', desc:'行程是 AI 承接页里的一种结果形态（不是第二个页面）：给完整内容 + 追问入口。' },
+  S6: { name:'出页 · 商品详情', desc:'出页只走「买」这一类；返回时回到来源状态（上下文不丢）。' },
+  S7: { name:'出页 · 地图页', desc:'地图是已有能力，落地页只做「页内地图卡 → 打开地图」这个承接位。' },
+  S9: { name:'出页 · 攻略内容页', desc:'清单型 query 的正文落点：攻略 / 清单内容有自己的详情页，feed 里点开就是这里。' },
+  EXIT: { name:'已退出落地页 → 回到搜索页', desc:'返回行为 A：返回键不入栈，用户在 AI 页按返回会直接退出落地页 —— 他可能只是想回「综合」。' },
+};
+
+function stateOf(key) {
+  if (key.indexOf('LAND:') === 0) {
+    const p = key.split(':'), id = p[1], isNow = p[2] === 'now', c = SC[id];
+    return { name: isNow ? ('现在 · ' + c.label) : c.name, desc: isNow ? c.nowDesc : c.desc,
+             ctx: isNow ? '—' : c.ctx, html: () => landing(id, isNow) };
+  }
+  const m = S_META[key] || {};
+  const st = S[key];
+  if (!st) return null;
+  return { name:m.name, desc:m.desc, ctx:() => key === 'S2' ? ('query=' + SC[scene.id].q + ' ｜ 已累积 ' + convo.length + ' 轮对话') : '—', html:st.html };
+}
+
+const SCENES = ['zz','zzq','bj','bjq','poi','sta','hot','ask'].map(id => {
+  const c = SC[id];
+  return { id:id, label:c.label, sub:c.sub, start:'LAND:' + id, now:'LAND:' + id + ':now' };
+});
+</script>
+<script>
+/* ================= 运行时 ================= */
+const $ = (id) => document.getElementById(id);
+let RET = 'A', scene = SCENES[0], cur = scene.start, step = 0, lastAI = null;
+let convoKey = 'entry', convo = [], convoChips = [];
+let curNote = '', curNoteAuthor = '', curNoteLike = '', curNoteCover = '';
+
+const CANNED_EXTRA = {
+  '只有两天呢？':'两天建议只留核心：<b>D1 中轴线、D2 长城或环球影城</b>，住宿固定在前门一带，少换乘。',
+  '住哪个区方便？':'第一次来住<b>前门 / 王府井</b>：换乘方便、晚上能逛；带娃优先<b>朝阳门</b>，离环球影城近。',
+  '帮我订酒店':'已按「前门一带 · 4 天 3 晚」筛出 3 家，均价 ¥428，可直接下单。',
+  '几点人最少？':'<b>7:30 开园</b>和 <b>15:00 后</b>最空；9:00–11:00 是高峰，尽量避开。',
+  '门票当天能买吗？':'当天现场不售票，<b>需提前 1 天</b>线上实名预约。',
+  '和留园选哪个？':'<b>拙政园</b>大而全、人多；<b>留园</b>小而精、人少。只去一个建议留园。',
+  '去国贸几站？':'地铁 7 号线转 10 号线，约 <b>25 分钟</b>、3 站到达。',
+  '周边有什么吃的？':'合生汇（地铁 1 站）餐饮最集中；步行 6 分钟有百子湾夜市。',
+  '值机几点截止？':'国内航班<b>起飞前 45 分钟</b>截止；国际航班 <b>60 分钟</b>。',
+  '哪里能充电？':'T2 到达层 3 号门附近有充电区；登机口 A-D 每 4 个口一组充电桩。',
+  '这家能停车吗？':'夫子庙店<b>免费停车</b>；少数老店只提供周边临时车位，订前看门店详情。',
+  '离秦淮河多远？':'夫子庙店距秦淮河 <b>600m</b>，步行 8 分钟；新街口店约 1.2km。',
+  '有没有双床房？':'夫子庙店有<b>双床房</b>，¥268 起；今晚还剩 2 间。',
+  '短途 2 天要带多少？':'2 天 1 晚 <b>一个背包就够</b>：衣服 2 套、洗漱分装、充电宝 / 雨伞 / 常用药各 1 件。',
+  '带娃要额外带什么？':'带娃额外加 <b>奶粉 / 餐具 / 退烧药 / 备用衣物</b>；推车看目的地，城市游带轻便款即可。',
+  '哪些东西不能上飞机？':'随身禁带 <b>打火机、超 100ml 液体、管制刀具、超 160Wh 充电宝</b>；<br>最常被扣的是<b>指甲刀、防晒喷雾、果冻</b>。',
+};
+
+/* 各场景预设问题的答案库（弹幕板 chip / 空态预设问题 / 追问都用它） */
+const ASK_ANS = {
+  '需要提前预约吗':'需要，<b>至少提前 1 天</b>在官方渠道实名预约，当天现场不售票。',
+  '拙政园和留园选哪个':'<b>拙政园</b>大而全、人多；<b>留园</b>小而精、人少。只去一个建议留园。',
+  '几点人最少':'<b>7:30 开园</b>和 <b>15:00 后</b>最空；9:00–11:00 是高峰，尽量避开。',
+  '门票当天能买吗':'当天现场不售票，<b>需提前 1 天</b>线上实名预约。',
+  '逛完附近吃什么':'平江路 / 观前街一带最集中，步行 10 分钟内；<br>· 观前街：老字号多<br>· 平江路：临河小馆',
+  '联票包含哪些':'联票含<b>苏州博物馆</b>（需另约），<b>不含</b>狮子林；两园分开买更灵活。',
+  '周末多少钱':'周末亲子票约 <b>¥860</b>，比平日贵约 ¥80；周日通常比周六便宜 ¥20–40。',
+  '亲子票和家庭票哪个划算':'1 大 1 小选<b>亲子票</b>（¥780）；2 大 1 小选<b>家庭票</b>（¥1,180），均摊更低。',
+  '3 岁要买票吗':'<b>3 岁以下免票</b>，需成人陪同并在入口出示证件；3 岁起买儿童票 ¥420。',
+  '能退改吗':'未使用可在<b>入园前 1 天 23:00 前</b>免费退；已过期不可退，改期以当日票价多退少补。',
+  '怎么预约入园':'购票后在官方小程序<b>实名预约入园日期</b>，凭身份证入园，无需换纸质票。',
+  '早鸟票更便宜吗':'提前 <b>7 天</b>以上购票通常便宜 ¥30–60；节假日早鸟额度有限，建议尽早锁价。',
+  '故宫几点人少':'<b>8:30 开馆前</b>到午门排队最短；下午 <b>15:00 后</b>人最少，但珍宝馆 16:00 停止入场。',
+  '长城怎么去最省事':'推荐「八达岭长城一日游」含往返，¥168 起，<b>早班车 7:00 出发</b>，省去换乘。',
+  '带娃住哪个区':'带娃优先<b>朝阳门 / 国贸</b>一带：离环球影城近、餐饮配套全；<br>逛中轴就住<b>前门 / 王府井</b>。',
+  '北京 4 天够玩吗':'够，4 天是最舒服的节奏：<b>中轴 1 天 + 长城 1 天 + 园林 1 天 + 机动 1 天</b>。',
+  '环球影城怎么去':'地铁 <b>7 号线 / 八通线</b>到环球度假区站，全程约 50 分钟；打车约 40 分钟。',
+  '北京南站附近住哪':'南站周边经济型均价 <b>¥316</b>；地铁 4 号线沿线换乘更方便。',
+  '附近停车方便吗':'地铁站周边路侧车位紧张，建议停<b>合生汇地下停车场</b>（步行 6 分钟）。',
+  '去国贸几站':'地铁 7 号线转 10 号线，约 <b>25 分钟</b>、3 站到达。',
+  '周边有什么吃的':'<b>合生汇</b>（地铁 1 站）餐饮最集中；步行 6 分钟有百子湾夜市。',
+  '晚上安全吗':'地铁站周边夜间照明好，建议走主路、避免背街小巷。',
+  '附近酒店多少钱':'步行 500m 内经济型均价 <b>¥220</b>，8 分钟可达。',
+  '地铁几点停运':'7 号线末班约 <b>23:15</b>，具体以当日站内公告为准。',
+  '转机要留多久':'同一航站楼转机<b>至少 60 分钟</b>；跨航站楼建议 <b>90 分钟以上</b>；需重新安检的留 2 小时。',
+  '提前多久到机场':'值机岛 A-D，<b>建议提前 90 分钟</b>到；节假日再富余 30 分钟。',
+  '值机几点截止':'国内航班<b>起飞前 45 分钟</b>截止；国际航班 <b>60 分钟</b>。',
+  '哪里能充电':'T2 到达层 3 号门附近有充电区；登机口 A-D 每 4 个口一组充电桩。',
+  '行李寄存多少钱':'机场 <b>T2 到达层有自营寄存点</b>，约 ¥20/件/天、24 小时有人值守（机场设施，以现场为准）。',
+  '到南京南站多久':'地铁 S1 机场线约 <b>30 分钟</b>到南京南站，6:00–22:40 运营。',
+  '南京出发飞到哪便宜':'按近期票价排：<b>厦门</b>（直飞约 1.5 小时）、<b>西安</b>（约 2 小时）、<b>重庆</b>（约 2 小时）；周末 2 天先看厦门 / 西安。',
+  '周末 2 天飞的去哪':'两天挑<b>直飞 2 小时内</b>的航线：厦门（海边 + 鼓浪屿）、西安（城墙 + 不夜城）、青岛（老城 + 海边）。',
+  '机票提前多久买便宜':'国内航线一般<b>提前 3–6 周</b>最便宜；节假日提前 2 个月锁价，周二、周三出发普遍比周末低。',
+  '南京直飞能到哪些城市':'南京直飞覆盖主要城市：<b>厦门 1.5 小时、西安 2 小时、重庆 2 小时、成都 2.5 小时、三亚 3 小时</b>。',
+  '500 块能飞到哪':'500 块够一次<b>直飞短途往返</b>：厦门 / 西安 / 重庆这类 2 小时航线常有低价票，住宿另算。',
+  '下个月哪条航线便宜':'下个月低价多在<b>厦门 / 西安 / 重庆</b>这类直线；周二、周三出发的航班通常最低。',
+  '这家能停车吗':'夫子庙店<b>免费停车</b>；少数老店只提供周边临时车位，订前看门店详情。',
+  '离秦淮河多远':'夫子庙店距秦淮河 <b>600m</b>（步行 8 分钟）；新街口店约 1.2km。',
+  '有没有双床房':'夫子庙店有<b>双床房</b>，¥268 起；今晚还剩 2 间。',
+  '几点能入住':'<b>14:00 后</b>可入住，早到可先寄存行李；部分门店支持 12:00。',
+  '含早餐吗':'夫子庙店<b>含双早</b>；解放碑店为无早房型，可加 ¥25/位。',
+  '能开发票吗':'支持<b>电子发票</b>，退房后在订单页申请，1 个工作日内开出。',
+  '短途 2 天要带多少':'2 天 1 晚 <b>一个背包就够</b>：衣服 <b>2 套</b>、洗漱分装、充电宝 / 雨伞 / 常用药各 1 件。',
+  '带娃要额外带什么':'带娃额外加 <b>奶粉 / 餐具 / 退烧药 / 备用衣物</b>；推车看目的地，城市游带轻便款即可。',
+  '哪些东西不能上飞机':'随身禁带 <b>打火机、超 100ml 液体、管制刀具、超 160Wh 充电宝</b>；<br>最常被扣的是<b>指甲刀、防晒喷雾、果冻</b>。',
+  '夏天去海边带什么':'海边加 <b>防晒霜（SPF50+）、防晒衣 / 帽子、驱蚊、沙滩拖鞋、防水袋</b>；换洗衣服按每天 1 套 + 1 套备用。',
+  '洗漱品要自己带吗':'酒店多数提供<b>基础洗漱</b>，但<b>牙刷牙膏、护发素</b>建议自带；液体一律分装，随身不超 100ml。',
+  '清单能存下来吗':'能，清单可以<b>存进我的行程</b>，出发前一天会提醒你照着清单确认一遍。',
+};
+
+const CANNED = {};
+Object.keys(SC).forEach((id) => { const cv = SC[id].convo; CANNED[cv.entry.q] = cv.entry.a; CANNED[cv.ask.q] = cv.ask.a; });
+Object.keys(CANNED_EXTRA).forEach((k) => { CANNED[k] = CANNED_EXTRA[k]; });
+
+function answerOf(q) {
+  return CANNED[q] || ASK_ANS[q] || ASK_ANS[q.replace(/？$/, '')] || '（原型示意：这里会给出该问题的回答）';
+}
+
+function setConvo(id, role, q) {
+  const c = SC[id].convo[role], res = SC[id].plan.res, resNotes = SC[id].plan.resNotes;
+  convoKey = role;
+  convo = [q ? { q:q, a:answerOf(q), res:res, resNotes:resNotes } : { q:c.q, a:c.a, res:res, resNotes:resNotes }];
+  convoChips = c.chips.slice();
+  const i = convoChips.indexOf(q);
+  if (i >= 0) convoChips.splice(i, 1);
+}
+
+function logRow(say, to) {
+  const box = $('log'), empty = box.querySelector('.muted');
+  if (empty) box.innerHTML = '';
+  const st = stateOf(to);
+  const row = document.createElement('div');
+  row.className = 'logrow';
+  row.innerHTML = '<span class="n">' + step + '</span>' + (say || '点了一下')
+    + ' <span class="to">→ ' + (st ? String(st.name).split('（')[0] : to) + '</span>';
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+}
+
+function smoothBottom() {
+  const sc = $('devNext').querySelector('.screen');
+  if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: 'smooth' });
+}
+
+function dirOf(from, to) {
+  const ai = (k) => k.indexOf('S') === 0 || k === 'EXIT';
+  if (ai(to) && !ai(from)) return 'animR';
+  if (!ai(to) && ai(from)) return 'animL';
+  return 'animF';
+}
+
+function render(anim) {
+  const st = stateOf(cur) || {};
+  const note = AI_STATES.indexOf(cur) >= 0
+    ? '<div class="empty-note"><div style="line-height:1.8">现在没有这个页面<span style="display:block;font-size:12.5px;color:#9aa8a1;margin-top:8px">线上没有 AI 承接页 / 行程视图</span></div></div>' : '';
+  $('devNow').innerHTML = '<div class="page">' + stateOf(scene.now).html() + note + '</div>';
+  $('devNext').innerHTML = '<div class="page">' + st.html() + '</div>';
+  const pg = $('devNext').querySelector('.page');
+  if (pg && anim) {
+    if (anim === 'animF') {
+      pg.classList.add('animF');                       /* 平级切换：整页淡入 */
+    } else {
+      const ct = pg.querySelector('.content'); if (ct) ct.classList.add(anim);            /* 只有内容滑 */
+      const tp = pg.querySelector('.searchrow, .titlerow'); if (tp) tp.classList.add('fade-in'); /* 搜索框 → 标题：渐显 */
+      const bt = pg.querySelector('.bottom'); if (bt) bt.classList.add('fade-in');
+    }
+  }
+  $('stateName').innerHTML = st.name + '<small>' + st.desc + '</small>';
+  const c = st.ctx;
+  $('ctxBox').innerHTML = '<b>上下文包（界面上不显示，这里可查）</b><br>' + (typeof c === 'function' ? c() : (c || '—'));
+}
+
+let swapT = null;
+function go(id, say) {
+  if (!stateOf(id)) return;
+  const from = cur;
+  cur = id; step++;
+  if (AI_MEM.indexOf(id) >= 0) lastAI = id;
+  logRow(say, id);
+  const anim = dirOf(from, id);
+  const pg = $('devNext').querySelector('.page');
+  const rows = pg ? pg.querySelectorAll('.content, .searchrow, .titlerow, .bottom') : [];
+  clearTimeout(swapT);
+  if (anim !== 'animF' && pg) {
+    Array.prototype.forEach.call(rows, function (el) { el.classList.add('fade-out'); });  /* tab 栏不动 */
+    swapT = setTimeout(function () { render(anim); }, 130);
+  } else {
+    render(anim);
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#devNow')) { step++; logRow('点「现在」这一侧：这条路现在走不通（线上没有这个入口）', cur); render(); return; }
+  const el = e.target.closest('[data-go],[data-back],[data-ai],[data-s2],[data-ask]');
+  if (!el) return;
+  if (el.dataset.back !== undefined) {
+    if (RET === 'A') go('EXIT', '按返回（行为 A：直接退出落地页）');
+    else go(scene.start, '按返回（行为 B：回上一个 tab）');
+    return;
+  }
+  if (el.dataset.s2 !== undefined) {
+    setConvo(scene.id, el.dataset.s2 === 'entry' ? 'entry' : 'ask', el.dataset.q);
+    go('S2', el.dataset.say);
+    return;
+  }
+  if (el.dataset.ask !== undefined) {
+    const q = el.dataset.ask;
+    convo.push({ q:q, a:answerOf(q) });
+    step++; logRow('追问「' + q + '」→ 在同一个对话里追加第 ' + convo.length + ' 轮', 'S2');
+    window.__popLast = true; render(null); window.__popLast = false;
+    smoothBottom(); return;
+  }
+  if (el.dataset.ai !== undefined) {
+    /* 规则：先看有没有"上次停留的视图"，再看页内首位是不是 AI 卡 */
+    if (lastAI) { go(lastAI, el.dataset.say + '（回到上次的视图）'); return; }
+    if (SC[scene.id].aiFirst) {                       // 头位是 AI 回复卡 → 延续那张卡的问题+答案
+      setConvo(scene.id, 'entry');
+      go('S2', el.dataset.say + '（延续页内那张 AI 卡）');
+      return;
+    }
+    go('S1', el.dataset.say + '（空态：给预设问题）');   // 头位是实体模块 → 空态
+    return;
+  }
+  if (el.dataset.note) {
+    curNote = el.dataset.note; curNoteAuthor = el.dataset.noteAuthor || '';
+    curNoteLike = el.dataset.noteLike || ''; curNoteCover = el.dataset.noteCover || 'pack';
+  }
+  go(el.dataset.go, el.dataset.say);
+});
+
+/* 开关 */
+$('swHot').checked = true; document.body.classList.add('showhot');
+$('swHot').addEventListener('change', (e) => document.body.classList.toggle('showhot', e.target.checked));
+$('swCtx').addEventListener('change', (e) => { $('ctxWrap').style.display = e.target.checked ? 'block' : 'none'; });
+$('swTicket').addEventListener('change', (e) => {
+  HAS_TICKET = e.target.checked;
+  applySta();
+  if (scene.id === 'sta') setConvo('sta', 'entry');   /* 条件变了，对话也跟着换成对应那套 */
+  step++; logRow('把「已订票」切到 ' + (HAS_TICKET ? '是（出现行程服务卡；AI 卡＝提前多久到机场）' : '否（回到 6 宫格；AI 卡＝南京出发，飞到哪便宜）'), cur);
+  render();
+});
+$('segRet').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  RET = b.dataset.ret;
+  Array.prototype.forEach.call($('segRet').children, (x) => x.classList.toggle('on', x === b));
+  step++; logRow('把返回行为切到 ' + RET, cur); render();
+});
+
+/* 场景列表 */
+$('scenes').innerHTML = SCENES.map((s, i) =>
+  '<button class="scene-btn' + (i === 0 ? ' on' : '') + '" data-scene="' + s.id + '">'
+  + '<b>' + s.label + '</b><small>' + s.sub + '</small></button>').join('');
+$('scenes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-scene]'); if (!b) return;
+  scene = SCENES.filter((s) => s.id === b.dataset.scene)[0];
+  Array.prototype.forEach.call($('scenes').children, (x) => x.classList.toggle('on', x === b));
+  cur = scene.start; step = 0; lastAI = null;
+  setConvo(scene.id, 'entry');
+  $('log').innerHTML = '';
+  step = 1; logRow('进入「' + scene.label + '」的落地页', cur);
+  render('animF');
+});
+
+/* 初始 */
+const qp = new URLSearchParams(location.search);
+const _sc = SCENES.filter((x) => x.id === qp.get('scene'))[0];
+if (_sc) { scene = _sc; cur = _sc.start;
+  Array.prototype.forEach.call($('scenes').children, (x) => x.classList.toggle('on', x.dataset.scene === _sc.id)); }
+applySta();
+setConvo(scene.id, 'entry');
+if (qp.get('s') && stateOf(qp.get('s'))) cur = qp.get('s');
+step = 1; logRow('进入「' + scene.label + '」的落地页', cur);
+render();
+</script>
+</body>
+</html>
